@@ -15,6 +15,8 @@
 - `export_field.body_forces` extracted with no numerical change. `forces.json` gains the
   `pressure_N` and `viscous_N` vectors.
 - `tools/audit/step0_check.py`, `docs/reference/step0_openfoam_build.md`, `validation/step0_v2512.json`.
+- Fallback exercised live: with `FOAM_LIBBIN` pointed at a missing folder, the Allrun line set
+  `hierarchical` and v2512 `decomposePar` reported `Decomposition method hierarchical [24]`, exit 0.
 - Tests: 7 new, each shown failing before the fix. Suite: 21 run, 18 pass, 3 expected failures.
   Deploy done, and the Blender smoke check reports ok.
 
@@ -45,7 +47,7 @@ lines are cited in the spec. None of these Cd values is a physical result: every
   bodies.
 - y+ is far outside 30 to 300 (FIX_PLAN step 3).
 - Purge the 1912 leftovers (Bilal, sudo): `sudo apt purge -y libopenfoam openfoam-examples`.
-- `~/wind_tunnel/_step0` (copies plus the fresh cube, about 1.2 GB) and `_install_check` can be
+- `~/wind_tunnel/_step0` (copies plus the fresh cube, 695 MB) and `_install_check` (90 MB) can be
   deleted once Bilal agrees.
 - A case written from Windows needs `wsl -u root chown` (as `wsl.launch` does) and `bash Allrun`;
   `./Allrun` is not executable over 9P.
