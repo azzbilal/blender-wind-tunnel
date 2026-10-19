@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+dist/
+*.zip
+.venv/
+.pytest_cache/
+# solver output never belongs here (it lives in WSL ~/wind_tunnel)
+processor*/
+*.vdb
+*.npz
+log.*

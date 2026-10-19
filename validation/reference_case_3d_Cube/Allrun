@@ -1,0 +1,19 @@
+#!/bin/bash
+for f in $(ls -d /usr/lib/openfoam/openfoam*/etc/bashrc /opt/openfoam*/etc/bashrc 2>/dev/null | sort -V | tail -1) /usr/share/openfoam/etc/bashrc; do [ -f "$f" ] && . "$f" > /dev/null 2>&1 && break; done
+export OMPI_ALLOW_RUN_AS_ROOT=1 OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 OMPI_MCA_btl_vader_single_copy_mechanism=none
+cd "$(dirname "$0")"
+fail() { echo "failed $1" > status; exit 1; }
+echo meshing > status
+surfaceFeatureExtract > log.surfaceFeatureExtract 2>&1 || fail surfaceFeatureExtract
+blockMesh > log.blockMesh 2>&1 || fail blockMesh
+decomposePar -force > log.decomposePar 2>&1 || fail decomposePar
+mpirun -np 24 --oversubscribe snappyHexMesh -overwrite -parallel > log.snappyHexMesh 2>&1 || fail snappyHexMesh
+for d in processor*; do rm -rf "${d:?}/0"; cp -r 0.orig "$d/0"; done
+mpirun -np 24 --oversubscribe checkMesh -parallel -constant > log.checkMesh 2>&1 || true
+echo solving > status
+mpirun -np 24 --oversubscribe simpleFoam -parallel > log.simpleFoam 2>&1 || fail simpleFoam
+echo exporting > status
+reconstructParMesh -constant > log.reconstructParMesh 2>&1 || fail reconstructParMesh
+reconstructPar -latestTime > log.reconstructPar 2>&1 || fail reconstructPar
+python3 export_field.py . --speed 20.0 --rho 1.225 --nu 1.5e-05 --voxel 0.05 --L 2 > log.export 2>&1 || fail export
+echo done > status

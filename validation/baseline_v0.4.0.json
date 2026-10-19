@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-19",
+  "addon_version": "0.4.0",
+  "openfoam": "v1912 (Ubuntu package)",
+  "conditions": {"speed_m_s": 20.0, "nu_m2_s": 1.5e-5, "rho_kg_m3": 1.225, "mesh": "COARSE", "cores": 24},
+  "cases": {
+    "cube": {
+      "size_m": 2.0, "cells": 358176, "blockage": 0.0278,
+      "Cd_400": 1.251, "Cd_1200": 1.151, "Cd_spread_750_1200": [1.151, 1.173],
+      "Cs_400": 0.255, "Cl_400": 0.159, "Cs_Cl_1200_abs_max": 0.03,
+      "p_initial_residual": {"400": 0.0236, "800": 0.0040, "1200": 0.0016},
+      "yplus": {"min": 9.2, "area_mean": 263, "max": 615, "area_frac_above_300": 0.41},
+      "total_pressure_excess_max_q": 0.19, "cells_over_0p02q": 62391,
+      "inlet_static_Cp_vs_outlet": 0.045,
+      "reference_Cd": {"value": 1.05, "source": "handbook value, not yet cited"}
+    },
+    "cone": {
+      "half_angle_deg": 26.57, "base_diameter_m": 2.0, "length_m": 2.0, "cells": 355327, "blockage": 0.0218,
+      "Cd_400": 0.579, "Cd_1200": 0.583,
+      "p_initial_residual": {"400": 0.0030, "800": 0.00069, "1200": 0.00014},
+      "yplus": {"min": 42, "area_mean": 476, "max": 1467, "area_frac_above_300": 0.69},
+      "inlet_static_Cp_vs_outlet": 0.011,
+      "reference_Cd": {"value": 0.46, "source": "Hoerner via aerospaceweb q0231: 0.50 at 30 deg, near-linear in half angle, interpolated to 26.6 deg"}
+    },
+    "sphere": {
+      "diameter_m": 2.0, "Re": 2.67e6, "cells": 339042, "blockage": 0.0217,
+      "Cd_400": 0.167, "Cd_1200": null,
+      "p_initial_residual": {"400": 0.0176},
+      "yplus": {"min": 44, "area_mean": 822, "max": 1269, "area_frac_above_300": 0.82},
+      "total_pressure_excess_max_q": 0.13, "cells_over_0p02q": 6010,
+      "inlet_static_Cp_vs_outlet": 0.005,
+      "reference_Cd": {"value": null, "source": "Achenbach 1972 JFM 54(3), transcritical regime; read value from the paper"}
+    }
+  },
+  "force_integration_check": "independent recomputation with OpenFOAM primitiveMesh geometry agrees within 0.1 N",
+  "exported_grid": {"net_flux_vs_inflow_max": 0.0011, "div_rms_far_max": 0.0061, "div_rms_next_to_body": [0.12, 0.028, 0.10]}
+}
