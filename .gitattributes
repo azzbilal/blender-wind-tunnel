@@ -1,0 +1,6 @@
+# Scripts and OpenFOAM dictionaries run inside WSL Ubuntu: keep LF everywhere.
+* text=auto eol=lf
+*.zip binary
+*.npz binary
+*.vdb binary
+*.stl binary
