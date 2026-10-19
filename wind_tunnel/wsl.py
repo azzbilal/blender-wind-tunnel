@@ -5,14 +5,26 @@ No Blender import, so it can be tested on its own.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
-# The first OpenFOAM environment script found: openfoam.com builds, then Ubuntu's own package.
+# Every OpenFOAM environment script present; pick_bashrc chooses one (same rule as case.ENV).
 PROBE = ("ls -d /usr/lib/openfoam/openfoam*/etc/bashrc /opt/openfoam*/etc/bashrc "
-         "/usr/share/openfoam/etc/bashrc 2>/dev/null | sort -V | tail -1; echo \"HOME=$HOME\"; nproc")
+         "/usr/share/openfoam/etc/bashrc 2>/dev/null; echo \"HOME=$HOME\"; nproc")
+
+_COM_VERSION = re.compile(r"/openfoam-?v?(\d+)/etc/bashrc$", re.IGNORECASE)
+
+
+def pick_bashrc(paths):
+    """The newest openfoam.com build (/usr/lib/openfoam/openfoamNNNN or /opt/openfoamNNNN), else
+    Ubuntu's /usr/share/openfoam package, else None. Versions compare as numbers, not as text."""
+    com = [(int(m.group(1)), p) for p in paths if (m := _COM_VERSION.search(p))]
+    if com:
+        return max(com)[1]
+    return next((p for p in paths if p.endswith("/etc/bashrc")), None)
 
 
 def _decode(raw: bytes) -> str:
@@ -48,11 +60,11 @@ def find_openfoam(preferred: str = ""):
         except (subprocess.TimeoutExpired, OSError):
             continue
         lines = out.splitlines()
-        rc = [line for line in lines if line.endswith("/etc/bashrc")]
+        rc = pick_bashrc([line for line in lines if line.endswith("/etc/bashrc")])
         home = [line[5:] for line in lines if line.startswith("HOME=")]
         cores = [line for line in lines if line.isdigit()]
         if rc and home:
-            return {"distro": d, "bashrc": rc[0], "home": home[0], "cores": int(cores[0]) if cores else 1}
+            return {"distro": d, "bashrc": rc, "home": home[0], "cores": int(cores[0]) if cores else 1}
     return None
 
 

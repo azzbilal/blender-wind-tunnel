@@ -25,13 +25,14 @@ and work through `docs/FIX_PLAN.md` in order.
   Bare `python` is the Windows Store stub and fails.
 - **Git Bash mangles Linux paths passed to Windows programs.** Every `wsl ...` call that
   contains a `/path` must be prefixed with `MSYS_NO_PATHCONV=1`, for example:
-  `MSYS_NO_PATHCONV=1 wsl -d Ubuntu-24.04 -e bash -lc ". /usr/share/openfoam/etc/bashrc && simpleFoam -help | head -3"`
+  `MSYS_NO_PATHCONV=1 wsl -d Ubuntu-24.04 -e bash -lc ". /usr/lib/openfoam/openfoam2512/etc/bashrc && simpleFoam -help | head -3"`
 - WSL distro: `Ubuntu-24.04`, Linux user `bilal`, 32 cores, about 15 GB RAM. Do not use the
   default `docker-desktop` distro.
-- OpenFOAM: currently Ubuntu's package **v1912** at `/usr/share/openfoam/etc/bashrc`. Its
-  function objects (`forces`, `forceCoeffs`, `solverInfo`, `yPlus`) crash with
-  `error in IOstream "sha1"`. That is why forces are integrated in Python. Installing the
-  openfoam.com build needs sudo, so Bilal runs it himself (see FIX_PLAN step 0).
+- OpenFOAM: **v2512** (openfoam.com package `openfoam2512-default` 2512.0-2) at
+  `/usr/lib/openfoam/openfoam2512/etc/bashrc`, with scotch and its own source tree under `src/`.
+  Function objects work (`forces`, `forceCoeffs`, `yPlus`); `tools/audit/step0_check.py` compares
+  them with `export_field.py`. The old Ubuntu v1912 (sha1 crash in every function object) is gone;
+  the solved cases' t = 400 fields were produced by it. Installs need sudo: Bilal runs them.
 - Blender 5.2 LTS: `"/c/Program Files/Blender Foundation/Blender 5.2/blender.exe"`.
   The add-on is installed as a legacy add-on in
   `%APPDATA%\Blender Foundation\Blender\5.2\scripts\addons\wind_tunnel`.
@@ -64,7 +65,7 @@ docs/                   ACCURACY_AUDIT.md (findings), FIX_PLAN.md (ordered work 
 1. `__init__.start_run3d` exports the evaluated mesh to triangles, `case3d.write_case` writes
    the case to `~/wind_tunnel/3d_<name>` in WSL (accessed from Windows as
    `\\wsl.localhost\Ubuntu-24.04\home\bilal\wind_tunnel\...`).
-2. `Allrun`: surfaceFeatureExtract, blockMesh, decomposePar (hierarchical, no scotch),
+2. `Allrun`: surfaceFeatureExtract, blockMesh, decomposePar (scotch; hierarchical if libscotchDecomp is missing),
    snappyHexMesh -parallel, simpleFoam -parallel, reconstructPar, `python3 export_field.py`.
 3. `export_field.py` writes `forces.json` (Newtons, Cd/Cl on frontal area) and `field.npz`
    (U, p in Pa on a voxel grid, IDW from 4 nearest cell centres, solid mask).

@@ -333,9 +333,11 @@ relaxationFactors
 }
 """)
     nx, ny, nz = split3(s.procs)
-    # Ubuntu's OpenFOAM is built without scotch, so the split is geometric: most pieces along the wind.
+    # scotch balances the pieces on the mesh graph. Allrun falls back to the geometric split (most
+    # pieces along the wind) on a build without libscotchDecomp, such as Ubuntu's own package.
     w(sysd / "decomposeParDict", "dictionary", "decomposeParDict",
-      f"numberOfSubdomains {s.procs};\nmethod hierarchical;\ncoeffs {{ n ({nx} {ny} {nz}); order xyz; }}\n")
+      f"numberOfSubdomains {s.procs};\nmethod scotch;\n"
+      f"hierarchicalCoeffs {{ n ({nx} {ny} {nz}); order xyz; }}\n")
 
 
 def write_case(root: Path, stl_tris, s: Setup3D, exporter: Path | None = None):
@@ -367,6 +369,8 @@ def write_case(root: Path, stl_tris, s: Setup3D, exporter: Path | None = None):
         "echo meshing > status",
         "surfaceFeatureExtract > log.surfaceFeatureExtract 2>&1 || fail surfaceFeatureExtract",
         "blockMesh > log.blockMesh 2>&1 || fail blockMesh",
+        "[ -e \"$FOAM_LIBBIN/libscotchDecomp.so\" ] || foamDictionary -entry method -set hierarchical "
+        "system/decomposeParDict > /dev/null 2>&1 || fail decomposeParDict",
         "decomposePar -force > log.decomposePar 2>&1 || fail decomposePar",
         f"{mpi} snappyHexMesh -overwrite -parallel > log.snappyHexMesh 2>&1 || fail snappyHexMesh",
         "for d in processor*; do rm -rf \"${d:?}/0\"; cp -r 0.orig \"$d/0\"; done",

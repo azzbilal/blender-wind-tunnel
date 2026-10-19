@@ -219,6 +219,28 @@ def frontal_area(tris, n=400):
     return cover.sum() * h * h
 
 
+def body_forces(case, t, pts, sizes, starts, toks, owner, cc, U, p, rho, nu):
+    """Pressure and viscous force vectors on the `body` patch, in newtons.
+
+    Pressure: rho p_P Sf (p is zeroGradient on the wall, so p_P is the face value).
+    Viscous: rho (nu + nut_w) |Sf| U_t,P / d_n, the tangential part of OpenFOAM's
+    Sf & rho nuEff devTwoSymm(grad U) (docs/reference/step0_openfoam_build.md).
+    """
+    start, nb = read_boundary(case / "constant" / "polyMesh")["body"]
+    bf = np.arange(start, start + nb)
+    fcen, farea = face_geometry(pts, sizes, starts, toks, bf)
+    own = owner[bf]
+    A = np.linalg.norm(farea, axis=1)
+    n = farea / A[:, None]                       # out of the air, into the body
+    nut_w = read_patch_values(case / t / "nut", "body", nb)
+    dn = np.abs(((fcen - cc[own]) * n).sum(axis=1))
+    u = U[own]
+    ut = u - n * (u * n).sum(axis=1)[:, None]
+    f_p = p[own][:, None] * farea
+    f_v = ut * ((nu + nut_w) * A / np.maximum(dn, 1e-12))[:, None]
+    return rho * f_p.sum(axis=0), rho * f_v.sum(axis=0)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("case")
@@ -245,19 +267,7 @@ def main():
     print("cells", ncells, flush=True)
 
     # ---- forces on the body (pressure + wall shear), in newtons
-    start, nb = read_boundary(pm)["body"]
-    bf = np.arange(start, start + nb)
-    fcen, farea = face_geometry(pts, sizes, starts, toks, bf)
-    own = owner[bf]
-    A = np.linalg.norm(farea, axis=1)
-    n = farea / A[:, None]                       # out of the air, into the body
-    nut_w = read_patch_values(case / t / "nut", "body", nb)
-    dn = np.abs(((fcen - cc[own]) * n).sum(axis=1))
-    u = U[own]
-    ut = u - n * (u * n).sum(axis=1)[:, None]
-    f_p = p[own][:, None] * farea
-    f_v = ut * ((a.nu + nut_w) * A / np.maximum(dn, 1e-12))[:, None]
-    Fp, Fv = a.rho * f_p.sum(axis=0), a.rho * f_v.sum(axis=0)
+    Fp, Fv = body_forces(case, t, pts, sizes, starts, toks, owner, cc, U, p, a.rho, a.nu)
     F = Fp + Fv
 
     tris_raw = Path(case / "constant" / "triSurface" / "body.stl").read_bytes()
@@ -268,6 +278,7 @@ def main():
     q = 0.5 * a.rho * a.speed ** 2
     forces = {"time": t, "cells": ncells, "drag_N": F[0], "side_N": F[1], "lift_N": F[2],
               "pressure_drag_N": Fp[0], "friction_drag_N": Fv[0], "frontal_area_m2": Af,
+              "pressure_N": Fp.tolist(), "viscous_N": Fv.tolist(),
               "Cd": F[0] / (q * Af), "Cl": F[2] / (q * Af), "speed": a.speed, "rho": a.rho}
     (case / "forces.json").write_text(json.dumps(forces, indent=2))
     print(json.dumps(forces), flush=True)

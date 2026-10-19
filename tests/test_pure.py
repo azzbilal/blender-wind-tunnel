@@ -26,6 +26,7 @@ if "wind_tunnel" not in sys.modules:
 case = importlib.import_module("wind_tunnel.case")
 case3d = importlib.import_module("wind_tunnel.case3d")
 results = importlib.import_module("wind_tunnel.results")
+wsl = importlib.import_module("wind_tunnel.wsl")
 
 
 def cube_triangles(L=2.0):
@@ -99,6 +100,23 @@ class Case3D(unittest.TestCase):
         pos = [text.index(k) for k in order]
         self.assertEqual(pos, sorted(pos))
 
+    def _decompose_method(self):
+        text = (self.root / "system/decomposeParDict").read_text()
+        return [ln.split()[1].rstrip(";") for ln in text.splitlines() if ln.split()[:1] == ["method"]]
+
+    def test_decomposition_scotch(self):
+        """FIX_PLAN step 0: scotch partitioning, as the openfoam.com builds ship it."""
+        self.assertEqual(self._decompose_method(), ["scotch"])
+
+    def test_decomposition_fallback_before_decompose(self):
+        """Without libscotchDecomp the Allrun switches to hierarchical before decomposePar runs."""
+        lines = self.script.read_text().splitlines()
+        fb = [i for i, ln in enumerate(lines) if "libscotchDecomp" in ln and "hierarchical" in ln]
+        dp = [i for i, ln in enumerate(lines) if ln.startswith("decomposePar")]
+        self.assertEqual(len(fb), 1)
+        self.assertLess(fb[0], dp[0])
+        self.assertIn("hierarchicalCoeffs", (self.root / "system/decomposeParDict").read_text())
+
     def _blockage(self):
         (x0, y0, z0), (x1, y1, z1) = self.t["box"]
         return self.t["L"] ** 2 / ((y1 - y0) * (z1 - z0))   # cube frontal area = L^2
@@ -122,6 +140,31 @@ class Case3D(unittest.TestCase):
         """FIX_PLAN step 3: at least 5 prism layers sized from a target y+."""
         self.assertGreaterEqual(self.s.layers, 5)
         self.assertIn("relativeSizes false", (self.root / "system/snappyHexMeshDict").read_text())
+
+
+class PickBashrc(unittest.TestCase):
+    """Which OpenFOAM environment script the add-on sources (wsl.pick_bashrc)."""
+    UBUNTU = "/usr/share/openfoam/etc/bashrc"
+    COM = "/usr/lib/openfoam/openfoam{}/etc/bashrc"
+
+    def test_newest_openfoam_com_wins(self):
+        paths = [self.COM.format(2606), self.COM.format(2512), self.COM.format(1912)]
+        self.assertEqual(wsl.pick_bashrc(paths), self.COM.format(2606))
+        self.assertEqual(wsl.pick_bashrc(paths[::-1]), self.COM.format(2606))
+
+    def test_openfoam_com_beats_ubuntu_package(self):
+        self.assertEqual(wsl.pick_bashrc([self.COM.format(2512), self.UBUNTU]), self.COM.format(2512))
+        self.assertEqual(wsl.pick_bashrc([self.UBUNTU, self.COM.format(2512)]), self.COM.format(2512))
+
+    def test_opt_layout_counts_as_openfoam_com(self):
+        self.assertEqual(wsl.pick_bashrc([self.UBUNTU, "/opt/openfoam2412/etc/bashrc"]),
+                         "/opt/openfoam2412/etc/bashrc")
+
+    def test_ubuntu_package_only_as_fallback(self):
+        self.assertEqual(wsl.pick_bashrc([self.UBUNTU]), self.UBUNTU)
+
+    def test_nothing_found(self):
+        self.assertIsNone(wsl.pick_bashrc([]))
 
 
 class Readers(unittest.TestCase):

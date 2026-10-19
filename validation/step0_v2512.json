@@ -1,0 +1,306 @@
+{
+ "date": "2026-10-19",
+ "fix_plan_step": 0,
+ "openfoam": "v2512 (openfoam2512-default 2512.0-2, build bd2b6720-20260127)",
+ "conditions": {
+  "speed_m_s": 20.0,
+  "nu_m2_s": 1.5e-05,
+  "rho_kg_m3": 1.225,
+  "mesh": "COARSE",
+  "cores": 24
+ },
+ "reference": "OpenFOAM v2512 forces/forceCoeffs/yPlus function objects; definitions and source lines in docs/reference/step0_openfoam_build.md",
+ "gates": {
+  "total": "|dF| <= 0.5 % of OpenFOAM total Fx, each component",
+  "pressure_x": "|dFp_x| <= 0.1 % of OpenFOAM total Fx",
+  "viscous": "reported, not gated"
+ },
+ "method": "simpleFoam -postProcess -latestTime -dict system/step0Check on copies in ~/wind_tunnel/_step0 (tools/audit/step0_check.py); export_field.body_forces on the same time",
+ "cases": {
+  "Cube": {
+   "case": "Cube",
+   "openfoam": "v2512",
+   "time": "400",
+   "cells": 358176,
+   "openfoam_N": {
+    "total": [
+     1225.9165,
+     250.11485,
+     155.82399
+    ],
+    "pressure": [
+     1227.5433,
+     250.7808,
+     155.98881
+    ],
+    "viscous": [
+     -1.626817,
+     -0.66594536,
+     -0.16481757
+    ]
+   },
+   "export_field_N": {
+    "total": [
+     1225.8946717775764,
+     250.1198977868025,
+     155.8221754588944
+    ],
+    "pressure": [
+     1227.543292852976,
+     250.78079647075495,
+     155.988812425855
+    ],
+    "viscous": [
+     -1.648621075399609,
+     -0.6608986839524382,
+     -0.166636966960605
+    ]
+   },
+   "diff_pct_of_Fx": {
+    "total": [
+     -0.0017805635558102494,
+     0.000411756167938123,
+     -0.00014801506510455888
+    ],
+    "pressure": [
+     -5.829943562454122e-07,
+     -2.8788625074336164e-07,
+     1.978809324550316e-07
+    ],
+    "viscous": [
+     -0.0017785938438391958,
+     0.00041166556185203606,
+     -0.00014841116508383835
+    ]
+   },
+   "viscous_x_diff_pct_of_viscous_x": 1.3402906042664255,
+   "Cd": {
+    "forceCoeffs": 1.2509352,
+    "export_field": 1.250912930385282
+   },
+   "yplus": {
+    "min": 9.187925,
+    "area_mean": 262.5607431677485,
+    "max": 615.6043,
+    "area_frac_30_300": 0.5853214253180408
+   },
+   "gate_total_0p5": true,
+   "gate_pressure_x_0p1": true,
+   "fields_from": "v1912 solve of ~/wind_tunnel/3d_Cube (400 iterations, unconverged, see baseline_v0.4.0.json); only the post-processing is compared"
+  },
+  "Cone": {
+   "case": "Cone",
+   "openfoam": "v2512",
+   "time": "400",
+   "cells": 355327,
+   "openfoam_N": {
+    "total": [
+     444.43798,
+     -0.99096086,
+     -1.9093452
+    ],
+    "pressure": [
+     439.11445,
+     -0.98758036,
+     -1.9066105
+    ],
+    "viscous": [
+     5.3235353,
+     -0.0033805034,
+     -0.0027346817
+    ]
+   },
+   "export_field_N": {
+    "total": [
+     444.4677751444508,
+     -0.9903068702895168,
+     -1.9102553099998265
+    ],
+    "pressure": [
+     439.1144483612089,
+     -0.9875803587639069,
+     -1.906610516986363
+    ],
+    "viscous": [
+     5.353326783241923,
+     -0.0027265115256099232,
+     -0.003644793013463467
+    ]
+   },
+   "diff_pct_of_Fx": {
+    "total": [
+     0.006704005011186436,
+     0.00014714982515293793,
+     -0.00020477772845303347
+    ],
+    "pressure": [
+     -3.687333617610152e-07,
+     2.7812499659729836e-10,
+     -3.82198726194881e-09
+    ],
+    "viscous": [
+     0.0067031812272036854,
+     0.00014715031203905592,
+     -0.00020477802402563952
+    ]
+   },
+   "viscous_x_diff_pct_of_viscous_x": 0.5596184032427337,
+   "Cd": {
+    "forceCoeffs": 0.57902665,
+    "export_field": 0.5790654614775652
+   },
+   "yplus": {
+    "min": 41.82465,
+    "area_mean": 475.4833444560251,
+    "max": 1469.79,
+    "area_frac_30_300": 0.30760386183782235
+   },
+   "gate_total_0p5": true,
+   "gate_pressure_x_0p1": true,
+   "fields_from": "v1912 solve of ~/wind_tunnel/3d_Cone (400 iterations, unconverged, see baseline_v0.4.0.json); only the post-processing is compared"
+  },
+  "Sphere": {
+   "case": "Sphere",
+   "openfoam": "v2512",
+   "time": "400",
+   "cells": 339042,
+   "openfoam_N": {
+    "total": [
+     127.69953,
+     -18.306741,
+     -23.307614
+    ],
+    "pressure": [
+     118.40614,
+     -18.300618,
+     -23.3032
+    ],
+    "viscous": [
+     9.2933928,
+     -0.0061238116,
+     -0.0044145396
+    ]
+   },
+   "export_field_N": {
+    "total": [
+     127.88573202660278,
+     -18.29802282314623,
+     -23.29541509725758
+    ],
+    "pressure": [
+     118.40613523670638,
+     -18.300617628573896,
+     -23.303199916541814
+    ],
+    "viscous": [
+     9.479596789896402,
+     0.0025948054276649555,
+     0.007784819284233772
+    ]
+   },
+   "diff_pct_of_Fx": {
+    "total": [
+     0.14581261701024703,
+     0.006827101755009565,
+     0.009552817259718335
+    ],
+    "pressure": [
+     -3.7300792080564954e-06,
+     2.9085941357455466e-07,
+     6.535512396932939e-08
+    ],
+    "viscous": [
+     0.14581415444238682,
+     0.006827446450010393,
+     0.009553174459008402
+    ]
+   },
+   "viscous_x_diff_pct_of_viscous_x": 2.0036169126134653,
+   "Cd": {
+    "forceCoeffs": 0.16697824,
+    "export_field": 0.16722171382361664
+   },
+   "yplus": {
+    "min": 43.86022,
+    "area_mean": 822.1456075869787,
+    "max": 1269.193,
+    "area_frac_30_300": 0.17814357832429134
+   },
+   "gate_total_0p5": true,
+   "gate_pressure_x_0p1": true,
+   "fields_from": "v1912 solve of ~/wind_tunnel/3d_Sphere (400 iterations, unconverged, see baseline_v0.4.0.json); only the post-processing is compared"
+  },
+  "fresh_cube": {
+   "case": "fresh_cube",
+   "openfoam": "v2512",
+   "time": "400",
+   "cells": 359240,
+   "openfoam_N": {
+    "total": [
+     1237.2372,
+     -23.735065,
+     -12.307828
+    ],
+    "pressure": [
+     1239.4136,
+     -22.903498,
+     -12.443695
+    ],
+    "viscous": [
+     -2.1764279,
+     -0.83156663,
+     0.13586677
+    ]
+   },
+   "export_field_N": {
+    "total": [
+     1237.185768244596,
+     -23.720505130753676,
+     -12.302777292988079
+    ],
+    "pressure": [
+     1239.413643210576,
+     -22.90349805365424,
+     -12.443695073356984
+    ],
+    "viscous": [
+     -2.2278749659801687,
+     -0.8170070770994358,
+     0.140917780368905
+    ]
+   },
+   "diff_pct_of_Fx": {
+    "total": [
+     -0.004156984239086081,
+     0.0011768050012013161,
+     0.0004082246324247019
+    ],
+    "pressure": [
+     3.49250539795803e-06,
+     -4.336617114479297e-09,
+     -5.9290962546914845e-09
+    ],
+    "viscous": [
+     -0.004158221720149415,
+     0.0011767794324777988,
+     0.0004082491513272485
+    ]
+   },
+   "viscous_x_diff_pct_of_viscous_x": 2.3638304756233115,
+   "Cd": {
+    "forceCoeffs": 1.262487,
+    "export_field": 1.2624344573924446
+   },
+   "yplus": {
+    "min": 10.33593,
+    "area_mean": 261.2858338597544,
+    "max": 787.4459,
+    "area_frac_30_300": 0.6290194890319006
+   },
+   "gate_total_0p5": true,
+   "gate_pressure_x_0p1": true,
+   "fields_from": "v2512, case3d.write_case + Allrun (scotch, 124 s), 400 iterations, p initial residual 0.0045 at 400: not converged, Cd is not a result"
+  }
+ },
+ "verdict": true
+}
