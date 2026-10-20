@@ -34,7 +34,7 @@ Code against the reference doc (`docs/reference/step0_openfoam_build.md`):
   `rhoRef = rho(p)` (`forces.C:722`, return of `rhoRef_` for `rho rhoInf` at `forces.C:351`).
 - Viscous force: `export_field.py:235-241`, `rho (nu + nut_w) |Sf| U_t,P / d_n`*. Matches the doc's
   "export_field.py" column. OpenFOAM side: `forces.C:731-734` `Sfb & devRhoReff(gradUb)`, and
-  `devRhoReff` returns `-rho*nuEff*devTwoSymm(gradUp)`** for the incompressible model
+  `devRhoReff` returns `-rho*nuEff*devTwoSymm(gradUp)`* for the incompressible model
   (`forces.C:231`). `gradU = fvc::grad(U)` at `forces.C:717`.
 - Distance: `export_field.py:236` `d_n = |(C_f - C_P) . n|`. OpenFOAM: `fvPatch.C:158-160`
   (`delta() = nHat*(nHat & (Cf - Cn))`), `basicFvGeometryScheme.C:200`
