@@ -59,8 +59,8 @@ available. It does not call `validate()`: `simpleFoam.C:82` includes `postProces
 `turbulence->validate()` at `simpleFoam.C:92`, and `postProcess.H` (in
 `OpenFOAM/db/functionObjects/functionObjectList/`) loops over the selected times (`:110`), builds
 the fields from `createFields.H` (`:147`), runs the function objects (`:157`) and returns (`:178`).
-So `forces` uses the stored `400/nut`, read with `MUST_READ` (`TurbulenceModels/turbulenceModels/
-eddyViscosity/eddyViscosity.C:67`), the same file `export_field.py` reads. Only `yPlus()`
+So `forces` uses the stored `400/nut`, read with `MUST_READ`
+(`TurbulenceModels/turbulenceModels/eddyViscosity/eddyViscosity.C:67`), the same file `export_field.py` reads. Only `yPlus()`
 re-solves `uTau` from the stored U.
 
 ## Mapping onto `wind_tunnel/export_field.py`
