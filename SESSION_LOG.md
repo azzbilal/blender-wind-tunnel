@@ -145,14 +145,21 @@ Version 0.4.2. Tests: 26 run, 23 pass, 3 expected failures. Deploy and headless 
 
 p_inf matches `surfaceFieldValue` areaAverage on the inlet to 2e-10 q on all three; cone and sphere
 reproduce the baseline_v0.4.0.json inlet offsets (+0.011, +0.005). Blender VDB probe (cube): Cp 1.0221
-half a voxel ahead of the front-face centre, 0.1481 at (-2.5, -1.25, -1.25) on the grid's upstream face;
+one voxel (0.05 m) ahead of the front-face centre, 0.1481 at (-2.5, -1.25, -1.25) on the grid's upstream face;
 VDB vs npz difference 0.0. Along the slice's upstream edge (x = -2.5, y = 0) Cp runs from 0.446 on
 the axis to 0.046 at z = 2.5 m, because the grid starts only 0.75 L ahead of the body.
 
 ### Open issues
 - Cube stagnation Cp 1.0232 > 1: present in OpenFOAM's own `pressure` FO, so it is in the solved
-  field, not our interpolation. Cause not determined; candidates are the unconverged solve (step 2)
-  and the total-pressure excess in ACCURACY_AUDIT #3.
+  field, not our interpolation. Attribution from the step 1 review (docs/reviews/step1_review.md
+  3.4), reasoning on the stored t = 400 fields, not a validated result: U is fixed uniform on the
+  inlet while p there is zero gradient and raised near the axis by the body, so the stagnation
+  streamline enters with total pressure 1.031 q above the inlet mean p (sphere 1.0076 q); along
+  the axis p0 only decreases (1.031 to 1.024 q at the wall cell), so no total pressure is created
+  on the stagnation line. Cp 1.0232 = inlet centre excess +0.031 minus about 0.008 q loss. This is
+  open issue (c), inlet non-uniformity (step 4); convergence (step 2) is not excluded but is not
+  needed to account for the magnitude. Test of the attribution: after step 4, with inlet Cp
+  spread below 0.002, cube stagnation Cp should fall within 1.00 +/- 2 %.
 - (a) WT Slice colours Cp with the speed ramp (viz.SPEED_STOPS, mapped from Cp -2.5..1 in
   viz3d._slice_tree), so Cp = 0 shows as yellow (ramp position 0.714) and there is no grey stop.
   Needs a diverging ramp centred on Cp = 0 (FIX_PLAN step 6, visualisation honesty).
@@ -237,3 +244,10 @@ STAGE 8: append to SESSION_LOG.md, with REVIEWER and NEXT prompts.
 RULES: stop at about 100k tokens and write SESSION_LOG.md; no sudo; no em dashes; asterisk the
 terms and add a glossary; never call a result validated without a cited reference value.
 ```
+
+## 2026-10-21: step 1 review closed (docs/reviews/step1_review.md)
+
+- 8 PASS, 0 FAIL. The 4 required fixes (probe point is one voxel, 0.05 m, ahead of the front face,
+  not half a voxel; three stale citations in step1_cp_reference.md; cube stagnation attribution in
+  the step 1 open issues) are applied. Recommended items (rho stored in field.npz, step1_check.py
+  defaults read from the case, key renames) are not done; the rho coupling is noted for step 2+.
