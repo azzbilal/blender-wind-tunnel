@@ -111,20 +111,129 @@ terms and add a glossary; never call a result validated without a cited referenc
 
 ## 2026-10-20: FIX_PLAN step 1 (Cp referenced to freestream static pressure), version 0.4.2
 
-Status: stages 0 to 7 done. Stage 6 QA in live Blender (scene QA_Step1) passed with Bilal's OK on
-2026-10-21. Version 0.4.2, tests 26 run / 23 pass / 3 expected failures, deploy and headless smoke
-check OK, committed. Not yet done: full handoff with REVIEWER and NEXT prompts (Stage 8).
-QA notes: the slice colours Cp on the speed ramp (no grey stop; Cp = 0 shows yellow); slice upstream
-edge Cp is 0.446 on axis, 0.046 at z = 2.5 m (grid starts 0.75 L ahead); the panel prints Cd to 3 decimals.
+Status: all stages done. Code commit 0281002 (plus 67eb372, a formatting-only reflow of the step 0
+reference doc). Stage 6 QA in live Blender (scene QA_Step1) passed with Bilal's OK on 2026-10-21.
+Version 0.4.2. Tests: 26 run, 23 pass, 3 expected failures. Deploy and headless smoke check OK.
 
+### Done
 - Stage 0 committed as d3ea787 (step 0 review closed). `_step0` and `_install_check` deleted with
   Bilal's OK after copying Cube (v2512 fresh run), Cone, Sphere into `~/wind_tunnel/_step1`.
 - numpy 2.5.4 and scipy 1.18.1 installed for `py` (which is Python 3.12.10, not 3.10 as CLAUDE.md says).
-- Grill: Q1 post-process, p_inf = area-weighted inlet mean from the inlet owner cells, shift only the
-  field.npz p; Q2 inlet patch; Q3 gates plus surfaceFieldValue and baseline references, stagnation
-  miss recorded not tuned, Blender probes inside the grid. Spec: docs/reference/step1_cp_reference.md.
 - Code: export_field.py `inlet_reference_pressure`, `cp_from_p`, `forces_record`, `write_field_npz`;
-  4 new tests shown failing first. Suite: 26 run, 23 pass, 3 expected failures.
+  4 new tests shown failing first. field.npz `p` is now `rho (p - p_inf)` in Pa, so the Blender VDB
+  `cp` grid is relative to p_inf with no change in viz3d. Body forces still use the raw p, so every
+  v0.4.1 `forces.json` value is unchanged; new keys `p_inf_Pa`, `p_inf_Cp_vs_outlet`.
 - Tracer: tools/audit/step1_check.py, tools/blender_cp_probe.py; numbers in validation/step1_cp_v2512.json.
-- QA staging folder: `~/wind_tunnel/3d_CubeStep1` (copy of the patched cube's field.npz, forces.json, status);
-  delete after QA.
+- Live QA: Load 3D result on a staged copy of the patched cube (`~/wind_tunnel/3d_CubeStep1`), Cd
+  property 1.262434 (forces.json 1.2624345), WT Slice in Pressure mode, stagnation red ahead of the
+  front face. Afterwards the QA scene and the objects and data it created were removed from Bilal's
+  open Blender file (not saved), and `3d_CubeStep1` was deleted.
+
+### Decisions locked by the grill
+| # | Answer |
+|---|---|
+| Q1 | Post-process, no BC change: p_inf = area-weighted mean of p on the `inlet` patch from the inlet faces' owner cells; subtract it from the field.npz p only |
+| Q2 | The inlet patch defines p_inf; its non-uniformity and a plane 1 L and 2 L downstream of the inlet are reported as a bound |
+| Q3 | Gates: p_inf vs OpenFOAM `surfaceFieldValue` within 0.001 q; inlet mean Cp after the shift 0 within 0.002; body Cp vs `pressure` function object (`staticCoeff`) within 0.001 on every face. Cube stagnation Cp 1.00 within 2 % is recorded, not tuned, and does not block the commit. Cone tip and sphere stagnation reported only |
+
+### Numbers (t = 400, 400 iterations, none converged; source validation/step1_cp_v2512.json)
+| Case | Fields | Cells | p_inf as Cp vs outlet (shift) | inlet Cp max - min | plane 1 L / 2 L after inlet | body Cp vs `pressure` FO, max abs | stagnation face Cp (before) |
+|---|---|---|---|---|---|---|---|
+| Cube | v2512 fresh run | 359,240 | +0.0419 (-4.19 % of q) | 0.0504 | -0.0007 / -0.0039 | 3.9e-7 | 1.0232 (1.0651), gate 1.00 +/- 2 % FAIL by 0.3 % |
+| Cone | v1912 | 355,327 | +0.0112 (-1.12 % of q) | 0.0100 | +0.0001 / -0.0004 | 2.7e-8 | 0.6197 (0.6309), tip face, reported only |
+| Sphere | v1912 | 339,042 | +0.0047 (-0.47 % of q) | 0.0118 | +0.00003 / +0.0001 | 3.3e-7 | 0.9817 (0.9864), reported only |
+
+p_inf matches `surfaceFieldValue` areaAverage on the inlet to 2e-10 q on all three; cone and sphere
+reproduce the baseline_v0.4.0.json inlet offsets (+0.011, +0.005). Blender VDB probe (cube): Cp 1.0221
+half a voxel ahead of the front-face centre, 0.1481 at (-2.5, -1.25, -1.25) on the grid's upstream face;
+VDB vs npz difference 0.0. Along the slice's upstream edge (x = -2.5, y = 0) Cp runs from 0.446 on
+the axis to 0.046 at z = 2.5 m, because the grid starts only 0.75 L ahead of the body.
+
+### Open issues
+- Cube stagnation Cp 1.0232 > 1: present in OpenFOAM's own `pressure` FO, so it is in the solved
+  field, not our interpolation. Cause not determined; candidates are the unconverged solve (step 2)
+  and the total-pressure excess in ACCURACY_AUDIT #3.
+- (a) WT Slice colours Cp with the speed ramp (viz.SPEED_STOPS, mapped from Cp -2.5..1 in
+  viz3d._slice_tree), so Cp = 0 shows as yellow (ramp position 0.714) and there is no grey stop.
+  Needs a diverging ramp centred on Cp = 0 (FIX_PLAN step 6, visualisation honesty).
+- (b) The coloured slice stops about 0.25 m short of its outline on the downstream and top sides:
+  the edge of the field.npz grid, where the slice deletes faces with sampled speed < 0.01. Cause not
+  chased (step 6).
+- (c) Inlet non-uniformity: Cp spread 0.050 across the cube inlet (0.010 cone, 0.012 sphere), so the
+  inlet is too close to the body for a uniform p_inf. For step 4 (domain).
+- The sidebar prints Cd with 3 decimals (`__init__.py:1061`).
+- Still pending (Bilal, sudo; checked installed 2026-10-21): `sudo apt purge -y libopenfoam openfoam-examples`.
+- `~/wind_tunnel/_step1` (359 MB) and `_audit` (3.2 GB) can be deleted once no longer needed; step 2
+  acceptance uses the `_audit` 1200-iteration values, so keep `_audit` until step 2 is closed.
+- CLAUDE.md says `py` is 3.10; it is 3.12.10.
+- Blender MCP: `get_screenshot_of_area_as_image` returned a stale frame twice even after a forced
+  redraw; `bpy.ops.render.opengl(view_context=True)` gave a faithful viewport image.
+
+### REVIEWER PROMPT
+```
+FRESH SESSION, REVIEW ONLY. Repo: D:\10_PROJECTS\aerodynamics blender openfoam (read CLAUDE.md).
+Review the diff 67eb372..0281002 (FIX_PLAN step 1, Cp reference) and the session log commit after
+it. Do not rewrite code; report PASS or FAIL per standard with file:line evidence. Save the report
+to docs/reviews/step1_review.md.
+1. OpenFOAM definitions: export_field.inlet_reference_pressure and cp_from_p match
+   docs/reference/step1_cp_reference.md and the installed source
+   /usr/lib/openfoam/openfoam2512/src: functionObjects/field/pressure (staticCoeff, pInf, UInf,
+   rhoInf; pInf in Pa, not m2/s2) and surfaceFieldValue areaAverage. Is the owner-cell value the
+   inlet face value (p zeroGradient on inlet, case3d.py:246)?
+2. Units: field.npz p = rho (p - p_inf) in Pa; viz3d.write_vdb cp = p / (0.5 rho U^2). Check the
+   chain end to end and that forces.json body forces still use the raw p (v0.4.1 values identical).
+3. Numbers: every value in validation/step1_cp_v2512.json, SESSION_LOG.md and the 0281002 commit
+   message traces to a log or file under ~/wind_tunnel/_step1 (cube, cone, sphere). Re-run
+   tools/audit/step1_check.py on one case and compare. Nothing called validated without a cited
+   reference value; the cube stagnation miss (1.0232 vs 1.00 +/- 2 %) is stated as a miss.
+4. Tests assert behaviour (p_inf weighting by face area, Cp formula, forces.json keys, npz shift),
+   not that files exist. Run py -m unittest discover -s tests -v: expect 26 run, 23 pass,
+   3 expected failures.
+5. Pure modules (case.py, case3d.py, meshgen.py, results.py, flowfield.py, wsl.py, export_field.py)
+   do not import bpy.
+6. No em dashes in any added text (git diff 67eb372..HEAD | grep the em dash character).
+7. LF line endings: git ls-files --eol on all changed files.
+8. Version 0.4.2 in both wind_tunnel/blender_manifest.toml and bl_info in __init__.py.
+Use MSYS_NO_PATHCONV=1 for every wsl call. No sudo. Mark technical terms with an asterisk and add
+a short glossary.
+```
+
+### NEXT PROMPT (FIX_PLAN step 2, convergence gate)
+```
+FRESH SESSION. Slice: FIX_PLAN step 2 (convergence gate).
+CONTEXT TO LOAD: CLAUDE.md, docs/FIX_PLAN.md step 2 only, docs/ACCURACY_AUDIT.md section 1 only,
+SESSION_LOG.md last entry. Facts already established: OpenFOAM v2512 with source in
+/usr/lib/openfoam/openfoam2512/src; function objects (forces, forceCoeffs, yPlus, pressure,
+surfaceFieldValue) work. Add-on 0.4.2: Cp is referenced to the inlet mean static p (step 1).
+3D runs stop at a fixed endTime (case3d.py:284, Setup.iterations, panel iterations3d default 400,
+__init__.py:87) with residualControl p 1e-5 (case3d.py:326) that 400 iterations never reach.
+field_state() returns "solved" from the object signature only (__init__.py:779). Audit values at
+1200 iterations (v1912 fields, ~/wind_tunnel/_audit, tools/audit/extend.sh): cube Cd 1.151
+(spread 1.151 to 1.173 over 750 to 1200), cone 0.583 (flat). The v2512 fresh cube has 359,240
+cells vs 358,176 for the v1912 cube and Cd 1.2624 vs 1.2509 at 400.
+STAGE 1 VERIFY: tests (26 run, 23 pass, 3 expected failures); ls ~/wind_tunnel/_audit.
+STAGE 2 GRILL, one question at a time with a recommendation:
+ Q1 mechanism: forceCoeffs function object every N iterations plus a runTimeControl
+    (averageCondition / equationInitialResidual conditions) inside OpenFOAM, or chunked runs
+    with the gate in Python? Which N?
+ Q2 gate: Cd change < 0.5 % over the last 200 iterations AND p initial residual down 3 orders
+    (from which reference iteration?), cap 3000. Reported Cd = mean of the last 200 with min/max.
+ Q3 acceptance: reproduce 1.151 and 0.583 within 1 %. Those are v1912 numbers on a slightly
+    different cube mesh; rerun both on v2512 to 1200 first, or gate against the v1912 values?
+ Q4 panel: exact wording for "converged" / "not converged: <reason>", and no Cd shown while the
+    gate is open.
+STAGE 3 REFERENCE, read only: src/functionObjects/utilities/runTimeControl (conditions
+averageCondition, equationInitialResidualCondition, minMaxCondition), forceCoeffs output files,
+solverPerformance / initial residual definition. Write docs/reference/step2_convergence_reference.md
+(about one page).
+STAGE 4 TDD: red, then green, on a pure gate function (for example gate(history) -> verdict,
+reasons, Cd mean/min/max) and on the controlDict text case3d writes.
+STAGE 5 TRACER: copies only, in ~/wind_tunnel/_step2. Run the gate on the cube and the cone; record
+iterations to pass, Cd mean/min/max and residual drop in validation/step2_*.json.
+STAGE 6: QA in Bilal's live Blender through the Blender MCP (new scene, never his own objects);
+wait for his OK.
+STAGE 7: tests, deploy, smoke check, version 0.4.3, commit stating how Cd changed and by how much.
+STAGE 8: append to SESSION_LOG.md, with REVIEWER and NEXT prompts.
+RULES: stop at about 100k tokens and write SESSION_LOG.md; no sudo; no em dashes; asterisk the
+terms and add a glossary; never call a result validated without a cited reference value.
+```
