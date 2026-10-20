@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import json
 import math
 import sys
 import tempfile
@@ -183,6 +184,64 @@ class Readers(unittest.TestCase):
         area, centre = results._face_geom([0, 1, 2, 3], pts)
         self.assertAlmostEqual(area[2], 1.0)
         self.assertAlmostEqual(centre[0], 0.5)
+
+
+class CpReference(unittest.TestCase):
+    """FIX_PLAN step 1: Cp referenced to the inlet mean static pressure (docs/reference/step1_cp_reference.md)."""
+
+    V041_KEYS = {"time", "cells", "drag_N", "side_N", "lift_N", "pressure_drag_N", "friction_drag_N",
+                 "frontal_area_m2", "pressure_N", "viscous_N", "Cd", "Cl", "speed", "rho"}
+
+    @classmethod
+    def setUpClass(cls):
+        global np
+        import numpy as np
+        cls.ef = importlib.import_module("wind_tunnel.export_field")
+
+    def test_inlet_mean_is_area_weighted(self):
+        p = np.array([0.0, 4.0, 99.0])                      # cell 2 is not on the patch
+        owner = np.array([0, 1])
+        Sf = np.array([[-1.0, 0, 0], [-3.0, 0, 0]])         # areas 1 and 3; unweighted mean would be 2
+        self.assertAlmostEqual(self.ef.inlet_reference_pressure(p, owner, Sf), 3.0)
+
+    def test_cp_zero_at_inlet_one_at_stagnation(self):
+        U, off = 20.0, 7.3                                  # uniform offset field, kinematic p
+        p_cells = np.full(4, off)
+        p_inf = self.ef.inlet_reference_pressure(p_cells, np.array([0, 1]), np.array([[-2.0, 0, 0], [-5.0, 0, 0]]))
+        self.assertEqual(self.ef.cp_from_p(off, p_inf, U), 0.0)
+        self.assertEqual(self.ef.cp_from_p(off + 0.5 * U ** 2, p_inf, U), 1.0)
+
+    def test_field_npz_pressure_shifted_by_p_inf(self):
+        """p in field.npz is rho (p - p_inf) in Pa, so viz3d.write_vdb's cp = p / (0.5 rho U^2) is
+        referenced to p_inf. The VDB grid itself needs Blender (openvdb); Stage 5 checks it headless."""
+        U, rho, p_inf = 20.0, 1.225, 9.0
+        pk = np.full((3, 2, 2), p_inf, dtype=float)
+        pk[0, 0, 0] = p_inf + 0.5 * U ** 2                 # stagnation
+        solid = np.zeros((3, 2, 2), bool)
+        solid[2, 1, 1] = True
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "field.npz"
+            self.ef.write_field_npz(path, np.zeros(3), 0.5, np.zeros((3, 2, 2, 3)), pk, solid, U, rho, p_inf)
+            with np.load(path) as f:
+                cp = f["p"] / (0.5 * rho * float(f["speed"]) ** 2)     # viz3d.write_vdb's formula
+                self.assertAlmostEqual(float(cp[0, 0, 0]), 1.0, places=6)
+                self.assertAlmostEqual(float(cp[1, 1, 0]), 0.0, places=6)
+                self.assertEqual(float(f["p"][2, 1, 1]), 0.0)          # solid voxels stay 0
+                self.assertAlmostEqual(float(f["p_inf_Pa"]), rho * p_inf, places=5)
+
+    def test_forces_json_keeps_v041_keys_and_adds_p_inf(self):
+        Fp, Fv = np.array([100.0, 1.0, 2.0]), np.array([3.0, 0.5, 0.25])
+        rec = self.ef.forces_record("400", 1000, Fp, Fv, 4.0, 20.0, 1.225, 9.8)
+        self.assertEqual(set(rec), self.V041_KEYS | {"p_inf_Pa", "p_inf_Cp_vs_outlet"})
+        q = 0.5 * 1.225 * 20.0 ** 2
+        self.assertEqual(rec["drag_N"], 103.0)
+        self.assertEqual(rec["pressure_drag_N"], 100.0)
+        self.assertEqual(rec["friction_drag_N"], 3.0)
+        self.assertAlmostEqual(rec["Cd"], 103.0 / (q * 4.0))
+        self.assertAlmostEqual(rec["Cl"], 2.25 / (q * 4.0))
+        self.assertAlmostEqual(rec["p_inf_Pa"], 1.225 * 9.8)
+        self.assertAlmostEqual(rec["p_inf_Cp_vs_outlet"], 9.8 / (0.5 * 20.0 ** 2))
+        json.dumps(rec)                                     # must stay serialisable
 
 
 class Step0Check(unittest.TestCase):

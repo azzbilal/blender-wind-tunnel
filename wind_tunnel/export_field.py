@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Runs inside WSL after a 3D solve: turns the OpenFOAM result into what Blender needs.
 
-  field.npz    velocity (m/s) and pressure (Pa) on a regular voxel grid around the body, plus a
-               solid mask; Blender writes it to an OpenVDB volume that Geometry Nodes samples
+  field.npz    velocity (m/s) and pressure (Pa, relative to the freestream static pressure p_inf)
+               on a regular voxel grid around the body, plus a solid mask; Blender writes it to an
+               OpenVDB volume that Geometry Nodes samples
   forces.json  drag, lift and side force on the body (pressure + wall shear, summed face by face),
-               the frontal area and Cd, Cl
+               the frontal area, Cd, Cl and p_inf
+
+p_inf is the area-weighted mean static p on the inlet patch (docs/reference/step1_cp_reference.md).
 
 Reads the reconstructed case in ASCII (latest time). Needs numpy and scipy (python3-numpy,
 python3-scipy). Usage: python3 export_field.py CASE --speed U --rho RHO --nu NU --voxel H --L L
@@ -241,6 +244,41 @@ def body_forces(case, t, pts, sizes, starts, toks, owner, cc, U, p, rho, nu):
     return rho * f_p.sum(axis=0), rho * f_v.sum(axis=0)
 
 
+def inlet_reference_pressure(p, owner, Sf):
+    """Freestream static pressure p_inf: area-weighted mean of p over a patch, from its faces' owner
+    cells (p is zeroGradient on the inlet, so the owner value is the face value). Same units as p;
+    OpenFOAM's surfaceFieldValue areaAverage of p on the inlet patch."""
+    A = np.linalg.norm(Sf, axis=1)
+    return float((p[owner] * A).sum() / A.sum())
+
+
+def cp_from_p(p, p_inf, U_inf):
+    """Pressure coefficient (p - p_inf) / (0.5 U_inf^2), p and p_inf kinematic (m2/s2)."""
+    return (p - p_inf) / (0.5 * U_inf ** 2)
+
+
+def forces_record(t, ncells, Fp, Fv, Af, speed, rho, p_inf):
+    """forces.json content. Forces in N; p_inf kinematic, reported in Pa and as Cp against the outlet."""
+    F = Fp + Fv
+    q = 0.5 * rho * speed ** 2
+    return {"time": t, "cells": ncells, "drag_N": F[0], "side_N": F[1], "lift_N": F[2],
+            "pressure_drag_N": Fp[0], "friction_drag_N": Fv[0], "frontal_area_m2": Af,
+            "pressure_N": Fp.tolist(), "viscous_N": Fv.tolist(),
+            "Cd": F[0] / (q * Af), "Cl": F[2] / (q * Af), "speed": speed, "rho": rho,
+            "p_inf_Pa": rho * p_inf, "p_inf_Cp_vs_outlet": p_inf / (0.5 * speed ** 2)}
+
+
+def write_field_npz(path, origin, voxel, U, p, solid, speed, rho, p_inf):
+    """field.npz: U (m/s) and p = rho (p - p_inf) in Pa on the voxel grid, both 0 inside the body.
+    p and p_inf are kinematic; viz3d.write_vdb turns p into cp = p / (0.5 rho U^2)."""
+    U = U.copy()
+    pg = rho * (p - p_inf)
+    U[solid] = 0.0
+    pg[solid] = 0.0
+    np.savez_compressed(path, origin=origin, voxel=voxel, U=U.astype(np.float32), p=pg.astype(np.float32),
+                        solid=solid, speed=speed, p_inf_Pa=rho * p_inf)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("case")
@@ -268,18 +306,17 @@ def main():
 
     # ---- forces on the body (pressure + wall shear), in newtons
     Fp, Fv = body_forces(case, t, pts, sizes, starts, toks, owner, cc, U, p, a.rho, a.nu)
-    F = Fp + Fv
+    start, n = read_boundary(pm)["inlet"]
+    inlet = np.arange(start, start + n)
+    _, Sf_in = face_geometry(pts, sizes, starts, toks, inlet)
+    p_inf = inlet_reference_pressure(p, owner[inlet], Sf_in)
 
     tris_raw = Path(case / "constant" / "triSurface" / "body.stl").read_bytes()
     nt = int.from_bytes(tris_raw[80:84], "little")
     arr = np.frombuffer(tris_raw[84:84 + 50 * nt], dtype=np.dtype([("n", "<f4", 3), ("v", "<f4", (3, 3)), ("a", "<u2")]))
     tris = arr["v"].astype(float)
     Af = frontal_area(tris)
-    q = 0.5 * a.rho * a.speed ** 2
-    forces = {"time": t, "cells": ncells, "drag_N": F[0], "side_N": F[1], "lift_N": F[2],
-              "pressure_drag_N": Fp[0], "friction_drag_N": Fv[0], "frontal_area_m2": Af,
-              "pressure_N": Fp.tolist(), "viscous_N": Fv.tolist(),
-              "Cd": F[0] / (q * Af), "Cl": F[2] / (q * Af), "speed": a.speed, "rho": a.rho}
+    forces = forces_record(t, ncells, Fp, Fv, Af, a.speed, a.rho, p_inf)
     (case / "forces.json").write_text(json.dumps(forces, indent=2))
     print(json.dumps(forces), flush=True)
 
@@ -300,12 +337,9 @@ def main():
     w = 1.0 / np.maximum(dist, 1e-9) ** 2
     w /= w.sum(axis=1, keepdims=True)
     Ug = (U[idx] * w[..., None]).sum(axis=1).reshape(nx, ny, nz, 3)
-    pg = (p[idx] * w).sum(axis=1).reshape(nx, ny, nz) * a.rho
+    pg = (p[idx] * w).sum(axis=1).reshape(nx, ny, nz)
     solid = inside_mask(tris, gx, gy, gz)
-    Ug[solid] = 0.0
-    pg[solid] = 0.0
-    np.savez_compressed(case / "field.npz", origin=blo, voxel=h, U=Ug.astype(np.float32),
-                        p=pg.astype(np.float32), solid=solid, speed=a.speed)
+    write_field_npz(case / "field.npz", blo, h, Ug, pg, solid, a.speed, a.rho, p_inf)
     print("grid", nx, ny, nz, "voxel", h, flush=True)
 
 

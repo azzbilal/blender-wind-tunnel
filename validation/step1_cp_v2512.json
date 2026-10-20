@@ -1,0 +1,203 @@
+{
+ "date": "2026-10-20",
+ "addon_version": "0.4.2",
+ "openfoam": "v2512 (openfoam2512-default 2512.0-2)",
+ "spec": "docs/reference/step1_cp_reference.md",
+ "method": "tools/audit/step1_check.py on copies in ~/wind_tunnel/_step1 (Cube, Cone, Sphere), patched export_field.py; OpenFOAM pressure (staticCoeff) and surfaceFieldValue via simpleFoam -postProcess -latestTime -dict system/step1Cp. Per-case raw output: ~/wind_tunnel/_step1/<case>.json; log files listed under each case's logs.",
+ "reference": "OpenFOAM v2512 functionObjects pressure (staticCoeff, same pInf, UInf, rhoInf) and surfaceFieldValue areaAverage on inlet; baseline_v0.4.0.json inlet offsets (cone, sphere). Stagnation Cp = 1 is Bernoulli on the stagnation streamline, a physical target; a miss is recorded, not tuned (grill Q3).",
+ "speed": 20.0,
+ "rho": 1.225,
+ "L": 2.0,
+ "cases": {
+  "Cube": {
+   "case": "Cube",
+   "openfoam": "v2512",
+   "time": "400",
+   "cells": 359240,
+   "p_inf_kinematic": 8.380877057703715,
+   "p_inf_Pa": 10.266574395687051,
+   "p_inf_Cp_vs_outlet": 0.04190438528851858,
+   "surfaceFieldValue_inlet_areaAverage_p": 8.3808771,
+   "p_inf_minus_surfaceFieldValue_over_q": -2.1148141904347995e-10,
+   "inlet_mean_Cp_after_shift": 1.0601087908747155e-18,
+   "inlet_Cp_max_minus_min": 0.05037517,
+   "inlet_Cp_centre_face": 0.031096664711481425,
+   "plane_1L_downstream_of_inlet_Cp": -0.0006955192885185735,
+   "plane_2L_downstream_of_inlet_Cp": -0.003921133788518576,
+   "body_Cp_vs_pressure_FO_max_abs_diff": 3.852885188670996e-07,
+   "stagnation_face": {
+    "centre": [
+     -1.0,
+     -0.04166658960914408,
+     0.04166658968611502
+    ],
+    "target": [
+     -1.0,
+     0.0,
+     0.0
+    ],
+    "Cp": 1.0231731147114815,
+    "Cp_pressure_FO": 1.023173,
+    "Cp_vs_outlet_before": 1.0650775000000001
+   },
+   "front_face_area_mean_Cp": 0.7786276570216164,
+   "front_face_count": 1104,
+   "body_face_Cp_max": 1.0236851147114814,
+   "forces_json_v041_values_identical": true,
+   "forces_json_new_keys": [
+    "p_inf_Cp_vs_outlet",
+    "p_inf_Pa"
+   ],
+   "gate_surfaceFieldValue_0p001": true,
+   "gate_pressure_FO_0p001": true,
+   "gate_inlet_mean_0p002": true,
+   "logs": [
+    "log.export_step1",
+    "log.step1Cp",
+    "postProcessing/inletP",
+    "postProcessing/plane1L",
+    "postProcessing/plane2L",
+    "400/static(p)_coeff"
+   ],
+   "fields_from": "v2512 fresh run of step 0 (log.simpleFoam in the same folder), 400 iterations, not converged",
+   "gate_stagnation_1p00_within_2pct": false
+  },
+  "Cone": {
+   "case": "Cone",
+   "openfoam": "v2512",
+   "time": "400",
+   "cells": 355327,
+   "p_inf_kinematic": 2.2391346712594067,
+   "p_inf_Pa": 2.742939972292773,
+   "p_inf_Cp_vs_outlet": 0.011195673356297033,
+   "surfaceFieldValue_inlet_areaAverage_p": 2.2391347,
+   "p_inf_minus_surfaceFieldValue_over_q": -1.4370296730348287e-10,
+   "inlet_mean_Cp_after_shift": -9.27595192015376e-19,
+   "inlet_Cp_max_minus_min": 0.010030645000000001,
+   "inlet_Cp_centre_face": 0.006174911643702968,
+   "plane_1L_downstream_of_inlet_Cp": 0.00014769414370296551,
+   "plane_2L_downstream_of_inlet_Cp": -0.0004265538562970339,
+   "body_Cp_vs_pressure_FO_max_abs_diff": 2.664370302163377e-08,
+   "stagnation_face": {
+    "centre": [
+     -0.95154805,
+     0.0123423323,
+     -0.00837010025
+    ],
+    "target": [
+     -1.0,
+     0.0,
+     2.9802322387695312e-08
+    ],
+    "Cp": 0.619678326643703,
+    "Cp_pressure_FO": 0.6196783,
+    "Cp_vs_outlet_before": 0.630874
+   },
+   "front_face_area_mean_Cp": null,
+   "front_face_count": 0,
+   "body_face_Cp_max": 0.6356058266437029,
+   "forces_json_v041_values_identical": true,
+   "forces_json_new_keys": [
+    "p_inf_Cp_vs_outlet",
+    "p_inf_Pa",
+    "pressure_N",
+    "viscous_N"
+   ],
+   "gate_surfaceFieldValue_0p001": true,
+   "gate_pressure_FO_0p001": true,
+   "gate_inlet_mean_0p002": true,
+   "logs": [
+    "log.export_step1",
+    "log.step1Cp",
+    "postProcessing/inletP",
+    "postProcessing/plane1L",
+    "postProcessing/plane2L",
+    "400/static(p)_coeff"
+   ],
+   "baseline_v0.4.0_inlet_static_Cp_vs_outlet": 0.011,
+   "gate_baseline_reproduced_to_3_decimals": true,
+   "fields_from": "v1912 solve, 400 iterations, not converged (same fields as baseline_v0.4.0.json)"
+  },
+  "Sphere": {
+   "case": "Sphere",
+   "openfoam": "v2512",
+   "time": "400",
+   "cells": 339042,
+   "p_inf_kinematic": 0.9346655217091409,
+   "p_inf_Pa": 1.1449652640936976,
+   "p_inf_Cp_vs_outlet": 0.004673327608545704,
+   "surfaceFieldValue_inlet_areaAverage_p": 0.93466552,
+   "p_inf_minus_surfaceFieldValue_over_q": 8.545704144324873e-12,
+   "inlet_mean_Cp_after_shift": 4.939143230211742e-19,
+   "inlet_Cp_max_minus_min": 0.01183436015,
+   "inlet_Cp_centre_face": 0.007599902391454295,
+   "plane_1L_downstream_of_inlet_Cp": 3.121204145429546e-05,
+   "plane_2L_downstream_of_inlet_Cp": 0.00013070679145429586,
+   "body_Cp_vs_pressure_FO_max_abs_diff": 3.276085458470135e-07,
+   "stagnation_face": {
+    "centre": [
+     -0.9919439499999999,
+     -0.0408497470875,
+     0.040853761720000006
+    ],
+    "target": [
+     -0.9999990463256836,
+     3.2782554626464844e-07,
+     0.0
+    ],
+    "Cp": 0.9816801723914543,
+    "Cp_pressure_FO": 0.9816802,
+    "Cp_vs_outlet_before": 0.9863535
+   },
+   "front_face_area_mean_Cp": null,
+   "front_face_count": 0,
+   "body_face_Cp_max": 0.9820246723914542,
+   "forces_json_v041_values_identical": true,
+   "forces_json_new_keys": [
+    "p_inf_Cp_vs_outlet",
+    "p_inf_Pa",
+    "pressure_N",
+    "viscous_N"
+   ],
+   "gate_surfaceFieldValue_0p001": true,
+   "gate_pressure_FO_0p001": true,
+   "gate_inlet_mean_0p002": true,
+   "logs": [
+    "log.export_step1",
+    "log.step1Cp",
+    "postProcessing/inletP",
+    "postProcessing/plane1L",
+    "postProcessing/plane2L",
+    "400/static(p)_coeff"
+   ],
+   "baseline_v0.4.0_inlet_static_Cp_vs_outlet": 0.005,
+   "gate_baseline_reproduced_to_3_decimals": true,
+   "fields_from": "v1912 solve, 400 iterations, not converged (same fields as baseline_v0.4.0.json)"
+  }
+ },
+ "blender_vdb_probe": {
+  "script": "tools/blender_cp_probe.py",
+  "blender": "5.2 LTS headless",
+  "case": "Cube",
+  "result": {
+   "vdb_vs_npz_max_abs": 0.0,
+   "upstream_face_off_axis": {
+    "xyz": [
+     -2.5,
+     -1.25,
+     -1.25
+    ],
+    "vdb_cp": 0.14809949696063995
+   },
+   "ahead_of_front_face_centre": {
+    "xyz": [
+     -1.05,
+     0.0,
+     0.0
+    ],
+    "vdb_cp": 1.022086501121521
+   }
+  },
+  "note": "grid starts 0.75 L upstream of the body (export_field.py), so 2 L upstream is outside it (grill Q3)"
+ }
+}

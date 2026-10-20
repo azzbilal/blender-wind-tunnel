@@ -108,3 +108,23 @@ terms and add a glossary; never call a result validated without a cited referenc
 ## 2026-10-20: step 0 review closed (docs/reviews/step0_review.md)
 
 - Wording correction to commit 23f65e5, whose message calls the viscous gap "explained": the gap is a hypothesis, attributed by elimination to the wall terms `body_forces` drops; the split between those terms has not been measured.
+
+## 2026-10-20: FIX_PLAN step 1 (Cp referenced to freestream static pressure), version 0.4.2
+
+Status: stages 0 to 7 done. Stage 6 QA in live Blender (scene QA_Step1) passed with Bilal's OK on
+2026-10-21. Version 0.4.2, tests 26 run / 23 pass / 3 expected failures, deploy and headless smoke
+check OK, committed. Not yet done: full handoff with REVIEWER and NEXT prompts (Stage 8).
+QA notes: the slice colours Cp on the speed ramp (no grey stop; Cp = 0 shows yellow); slice upstream
+edge Cp is 0.446 on axis, 0.046 at z = 2.5 m (grid starts 0.75 L ahead); the panel prints Cd to 3 decimals.
+
+- Stage 0 committed as d3ea787 (step 0 review closed). `_step0` and `_install_check` deleted with
+  Bilal's OK after copying Cube (v2512 fresh run), Cone, Sphere into `~/wind_tunnel/_step1`.
+- numpy 2.5.4 and scipy 1.18.1 installed for `py` (which is Python 3.12.10, not 3.10 as CLAUDE.md says).
+- Grill: Q1 post-process, p_inf = area-weighted inlet mean from the inlet owner cells, shift only the
+  field.npz p; Q2 inlet patch; Q3 gates plus surfaceFieldValue and baseline references, stagnation
+  miss recorded not tuned, Blender probes inside the grid. Spec: docs/reference/step1_cp_reference.md.
+- Code: export_field.py `inlet_reference_pressure`, `cp_from_p`, `forces_record`, `write_field_npz`;
+  4 new tests shown failing first. Suite: 26 run, 23 pass, 3 expected failures.
+- Tracer: tools/audit/step1_check.py, tools/blender_cp_probe.py; numbers in validation/step1_cp_v2512.json.
+- QA staging folder: `~/wind_tunnel/3d_CubeStep1` (copy of the patched cube's field.npz, forces.json, status);
+  delete after QA.
