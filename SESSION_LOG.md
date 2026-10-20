@@ -251,3 +251,13 @@ terms and add a glossary; never call a result validated without a cited referenc
   not half a voxel; three stale citations in step1_cp_reference.md; cube stagnation attribution in
   the step 1 open issues) are applied. Recommended items (rho stored in field.npz, step1_check.py
   defaults read from the case, key renames) are not done; the rho coupling is noted for step 2+.
+
+## 2026-10-21: FIX_PLAN step 2 (convergence gate), IN PROGRESS
+
+### Decisions locked by the grill
+| # | Answer |
+|---|---|
+| Q1 | `forceCoeffs` function object every iteration plus `runTimeControl` stopping and writing inside OpenFOAM; a pure Python `gate(history)` in export_field.py reads the same FO file and the log and writes the verdict into forces.json (authority for the panel) |
+| Q2 | Converged at iteration n when (max - min)/abs(mean) of Cd over n-199..n < 0.5 %, the first p solve's normalised initial residual < 1e-3 (iteration 1 reads 1.0), and n >= 400; cap 3000 (panel Iterations becomes the cap); fvSolution residualControl removed. Report Cd, Cl, Cs mean/min/max over the window; only Cd gated |
+| Q3 | Fresh v2512 Cube and Cone in ~/wind_tunnel/_step2: gated run, then continue ungated to 2000; offline gate on the full history must agree with the runTimeControl stop. Accept: (a) gate open at 400 and 800 on the cube; (b) mean of 1801-2000 within 1 % of the reported mean; (c) cone reported mean within 1 % of 0.583. Cube reported against 1.151 (and 1.151-1.173), not gated |
+| Q4 | Converged: "Converged at iteration N: p residual r, Cd band b %" then window means (min to max), forces in N as window means. Not converged (cap or stopped): reasons only, no Cd/Cl/forces. Solving: iteration and p residual. field_state "solved" only with forces.json converged true; finished unconverged runs load the field as new state "unconverged"; _cached reads the same flag, so v0.4.x cases show as not converged |
