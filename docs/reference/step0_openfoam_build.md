@@ -28,7 +28,7 @@ Per boundary face f of the listed patches, with `Sf` pointing out of the fluid:
   is the owner-cell gradient with its normal part replaced by `snGrad(U) = (U_w - U_P) * deltaCoeffs`
   (`finiteVolume/finiteVolume/gradSchemes/gaussGrad/gaussGrad.C` line 228). On a non-coupled patch
   `deltaCoeffs = 1/|n . (C_f - C_P)|` (`fvMesh/fvGeometryScheme/basic/basicFvGeometryScheme.C` line 200,
-  `fvMesh/fvPatches/fvPatch/fvPatch.C` lines 156 to 160).
+  `fvMesh/fvPatches/fvPatch/fvPatch.C` lines 158 to 160).
 
 ## forceCoeffs (`functionObjects/forces/forceCoeffs/forceCoeffs.C`: lines 160, 293, 311 to 313)
 
@@ -55,14 +55,20 @@ functions
 ```
 
 `simpleFoam -postProcess` builds the turbulence model, so `nuEff` and the wall-function `nut` are
-available. `validate()` recomputes `nut` from the stored U.
+available. It does not call `validate()`: `simpleFoam.C:82` includes `postProcess.H` before
+`turbulence->validate()` at `simpleFoam.C:92`, and `postProcess.H` (in
+`OpenFOAM/db/functionObjects/functionObjectList/`) loops over the selected times (`:110`), builds
+the fields from `createFields.H` (`:147`), runs the function objects (`:157`) and returns (`:178`).
+So `forces` uses the stored `400/nut`, read with `MUST_READ` (`TurbulenceModels/turbulenceModels/
+eddyViscosity/eddyViscosity.C:67`), the same file `export_field.py` reads. Only `yPlus()`
+re-solves `uTau` from the stored U.
 
 ## Mapping onto `wind_tunnel/export_field.py`
 
 | Quantity | OpenFOAM | export_field.py | Expected agreement |
 |---|---|---|---|
 | Pressure force | `rhoInf * Sf * p_b` | `rho * p[owner] * Sf` | Identical: p is `zeroGradient` on the body, so `p_b = p_P`; pRef 0 in both |
-| Viscous force | `-Sf & rho nuEff_b devTwoSymm(gradU_b)` | `rho (nu + nut_b) |Sf| U_t,P / d_n` | Same leading term `|Sf| rho nuEff (U_P - U_w) deltaCoeffs` (tangential part). Ours drops (a) the normal part of `U_P`, (b) the transpose term `gradU_b . n` (tangential derivatives of the cell-centre gradient), (c) the `-(2/3) tr(gradU)` term. On coarse curved wall cells these are not zero, which is the working hypothesis for the 2 % viscous gap on the sphere |
+| Viscous force | `-Sf & rho nuEff_b devTwoSymm(gradU_b)` | `rho (nu + nut_b) |Sf| U_t,P / d_n` | Wall face force `fV = rho nuEff |Sf| { U_t/d - grad_t(U_n) + n [ (4/3) U_n/d + (2/3) div_t U ] }`, with `d = 1/deltaCoeffs`, `U_n = n . U_P`, `U_t = U_P - n U_n`, and `grad_t`, `div_t` taken from the limited owner-cell gradient (derivation: `docs/reviews/step0_review.md`, standard 9). Ours keeps only `U_t/d`. With `nut_w` identical on both sides, the viscous gap (0.6 to 2.4 %) is attributed to the dropped terms by elimination; this is a hypothesis, because the split between the terms has not been measured |
 | Distance | `1/deltaCoeffs` (owner-centre to face, along n) | `d_n = |(C_f - C_P) . n|` | Same definition |
 | Cd | `F . dragDir / (Aref pDyn)` | `F_x / (q * A_f)` | Same once `Aref = A_f` |
 | y+ | `y uTau / nu`, Spalding | Not exported yet (FIX_PLAN step 3) | Audit used `y sqrt(nuEff |U_P| / y) / nu`, which equals Spalding's uTau by the `calcNut` identity |

@@ -304,3 +304,5 @@ more correct.
 - `y+`*: wall distance in viscous units, `y u_tau / nu`.
 
 Step 0 review: 8 PASS, 1 FAIL
+
+Step 0 review: all items closed

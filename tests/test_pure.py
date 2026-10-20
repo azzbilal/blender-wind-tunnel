@@ -10,6 +10,7 @@ is the signal to remove the marker.
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import math
 import sys
 import tempfile
@@ -182,6 +183,20 @@ class Readers(unittest.TestCase):
         area, centre = results._face_geom([0, 1, 2, 3], pts)
         self.assertAlmostEqual(area[2], 1.0)
         self.assertAlmostEqual(centre[0], 0.5)
+
+
+class Step0Check(unittest.TestCase):
+    def test_nu_read_from_case(self):
+        spec = importlib.util.spec_from_file_location("step0_check", REPO / "tools" / "audit" / "step0_check.py")
+        sc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(sc)
+        with tempfile.TemporaryDirectory() as d:
+            con = Path(d) / "constant"
+            con.mkdir()
+            (con / "transportProperties").write_text(
+                "FoamFile\n{\n    version 2.0;\n    object transportProperties;\n}\n"
+                "transportModel Newtonian;\nnu 1.8e-05;\n")
+            self.assertEqual(sc.case_nu(Path(d)), 1.8e-5)
 
 
 if __name__ == "__main__":

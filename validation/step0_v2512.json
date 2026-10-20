@@ -299,7 +299,8 @@
    },
    "gate_total_0p5": true,
    "gate_pressure_x_0p1": true,
-   "fields_from": "v2512, case3d.write_case + Allrun (scotch, 124 s), 400 iterations, p initial residual 0.0045 at 400: not converged, Cd is not a result"
+   "fields_from": "v2512, case3d.write_case + Allrun (scotch, 124 s), 400 iterations, p initial residual 0.0045 at 400: not converged, Cd is not a result",
+   "fields_from_sources": "~/wind_tunnel/_step0/fresh_cube. p initial residual at Time = 400: log.simpleFoam line 4877 (first p solve) 0.02804, line 4878 (non-orthogonal corrector) 0.004541; the 0.0045 above is the corrector, the first solve is the usual measure. 124 s: not stored in any file (presumably a wall-clock timing of the Allrun command taken outside the case); the logs give about 123 s (log.surfaceFeatureExtract line 12 Time 21:00:53 to the modification time of log.export, 21:02:56), simpleFoam alone ExecutionTime 96.05 s (log.simpleFoam line 4882)"
   }
  },
  "verdict": true

@@ -104,3 +104,7 @@ STAGE 7: append to SESSION_LOG.md, with REVIEWER and NEXT prompts.
 RULES: stop at about 100k tokens and write SESSION_LOG.md; no sudo; no em dashes; asterisk the
 terms and add a glossary; never call a result validated without a cited reference value.
 ```
+
+## 2026-10-20: step 0 review closed (docs/reviews/step0_review.md)
+
+- Wording correction to commit 23f65e5, whose message calls the viscous gap "explained": the gap is a hypothesis, attributed by elimination to the wall terms `body_forces` drops; the split between those terms has not been measured.

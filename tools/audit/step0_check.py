@@ -11,10 +11,9 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import re
 import subprocess
 from pathlib import Path
-
-import numpy as np
 
 BASHRC = "/usr/lib/openfoam/openfoam2512/etc/bashrc"
 
@@ -40,7 +39,18 @@ def last_row(path: Path):
     return head, [float(v) for v in row]
 
 
+def case_nu(case: Path) -> float:
+    """Kinematic viscosity nu (m2/s) from constant/transportProperties (plain or dimensioned entry)."""
+    text = (case / "constant" / "transportProperties").read_text()
+    m = re.search(r"^\s*nu\s+(?:\[[^\]]*\]\s*)?([-+0-9.eE]+)\s*;", text, re.M)
+    if not m:
+        raise SystemExit(f"no nu entry in {case}/constant/transportProperties")
+    return float(m.group(1))
+
+
 def main():
+    import numpy as np
+
     ap = argparse.ArgumentParser()
     ap.add_argument("case")
     ap.add_argument("--exporter", required=True, help="export_field.py of the add-on under test")
@@ -49,7 +59,7 @@ def main():
     case = Path(a.case).expanduser().resolve()
     ref = json.loads((case / "forces.json").read_text())
     rho, speed, Aref = ref["rho"], ref["speed"], ref["frontal_area_m2"]
-    nu = 1.5e-5
+    nu = case_nu(case)
 
     spec = importlib.util.spec_from_file_location("export_field", a.exporter)
     ef = importlib.util.module_from_spec(spec)
