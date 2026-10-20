@@ -6,7 +6,7 @@ Sidebar (N) > Wind Tunnel. The case files, the mesh and the force integration ar
 bl_info = {
     "name": "Wind Tunnel (OpenFOAM)",
     "author": "Bilal Azzouzi",
-    "version": (0, 4, 2),
+    "version": (0, 4, 3),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Wind Tunnel",
     "description": "Airfoil polars with OpenFOAM (simpleFoam, k-omega SST) running in WSL",
@@ -84,7 +84,9 @@ class WT_Props(bpy.types.PropertyGroup):
     quality: EnumProperty(name="Mesh", default="COARSE",
                           items=[("COARSE", "Coarse", "About 0.3 to 0.6 million cells: minutes"),
                                  ("MEDIUM", "Medium", "About 1 to 2 million cells: tens of minutes")])
-    iterations3d: IntProperty(name="Iterations", default=400, min=100, max=5000)
+    iterations3d: IntProperty(name="Max iterations", default=3000, min=400, max=10000,
+                              description="Cap on the iterations; the run stops earlier when the convergence "
+                                          "gate passes (Cd band < 0.5 % over 200 iterations and p residual < 1e-3)")
     auto_resolve: BoolProperty(name="Auto solve", default=True,
                                description="Solve by itself a few seconds after a Test Object is assigned or changed "
                                            "(a finished solve of the same shape is reused, not repeated)")
@@ -101,6 +103,8 @@ class WT_Props(bpy.types.PropertyGroup):
     cl3d: FloatProperty()
     area3d: FloatProperty()
     cells3d: IntProperty()
+    converged3d: BoolProperty(default=False)
+    verdict3d: StringProperty(default="")
     flow_wall: EnumProperty(name="Side wall", default="SPEED",
                             items=[("NONE", "None", "No side wall"),
                                    ("SPEED", "Speed", "Paint the side wall with |U| / U∞"),
@@ -713,6 +717,7 @@ def _poll3d():
     if status != "done":
         it, res = results.progress(root)
         extra = f", iteration {it}" if status == "solving" and it else ""
+        extra += f", p residual {res:.1e}" if extra and res else ""
         p.message3d = f"{status}{extra}, {clock}"
         _redraw()
         return 2.0
@@ -738,6 +743,11 @@ def _poll3d():
     lo, hi, U, f = st["built"]
     p.drag, p.lift, p.side = f["drag_N"], f["lift_N"], f["side_N"]
     p.cd3d, p.cl3d, p.area3d, p.cells3d = f["Cd"], f["Cl"], f["frontal_area_m2"], int(f["cells"])
+    p.converged3d = results.forces_converged(f)
+    p.verdict3d = "\n".join(results.verdict_lines(f))
+    if p.converged3d:                                  # window means, not the last iteration
+        p.drag, p.lift, p.side = f["drag_N_mean"], f["lift_N_mean"], f["side_N_mean"]
+        p.cd3d, p.cl3d = f["Cd_mean"], f["Cl_mean"]
     p.body3d = p.forces_body = st.get("body", p.body3d)
     body = bpy.data.objects.get(p.body3d)
     viz3d.load_volume(root / "flow.vdb")
@@ -765,9 +775,10 @@ def _poll3d():
     RUN3D.clear()
     WATCH["key"] = None
     _apply(scene)
-    if WATCH["key"] and WATCH["key"][0] == "solved":
-        how = "loaded from its earlier solve" if isinstance(st["proc"], _Finished) else f"solved in {clock}"
-        p.message3d = f"{p.body3d} {how}: play the timeline; WT Slice moves freely"
+    if WATCH["key"] and WATCH["key"][0] in ("solved", "unconverged"):
+        how = "loaded from its earlier run" if isinstance(st["proc"], _Finished) else f"finished in {clock}"
+        verdict = "converged" if p.converged3d else "NOT converged"
+        p.message3d = f"{p.body3d} {how}, {verdict}: play the timeline; WT Slice moves freely"
     _redraw()
     return None
 
@@ -778,7 +789,8 @@ WATCH = {"changed": 0.0, "key": None, "failed": ""}
 
 def field_state(scene):
     """(Test Object, state): state is 'none' (no WT Smoke), 'empty' (no Test Object), 'solved' (the
-    loaded field is this object's, as it is now), 'solving' (its run is going) or 'preview'."""
+    loaded field is this object's, as it is now, and its run passed the convergence gate),
+    'unconverged' (the same, but the gate never passed), 'solving' (its run is going) or 'preview'."""
     from . import viz3d
     p = scene.wind_tunnel
     mod = viz3d.smoke_modifier()
@@ -792,7 +804,7 @@ def field_state(scene):
         return test, "solving"
     if (bpy.data.objects.get(viz3d.FLOW) is not None and test.name == p.body3d and p.solved_sig == sig
             and not RUN3D):
-        return test, "solved"
+        return test, "solved" if p.converged3d else "unconverged"
     return test, "preview"
 
 
@@ -802,9 +814,10 @@ def _apply(scene):
     p = scene.wind_tunnel
     test, state = field_state(scene)
     mod = viz3d.smoke_modifier()
-    if mod is not None and viz3d.get_input(mod, "Use Field") != (state == "solved"):
-        viz3d.set_input(mod, "Use Field", state == "solved")
-    _show_flow(state == "solved")
+    loaded = state in ("solved", "unconverged")
+    if mod is not None and viz3d.get_input(mod, "Use Field") != loaded:
+        viz3d.set_input(mod, "Use Field", loaded)
+    _show_flow(loaded)
     p_stale = state == "preview"
     if p.field_stale != p_stale:
         p.field_stale = p_stale
@@ -813,6 +826,8 @@ def _apply(scene):
         WATCH["key"] = key
         if state == "solved":
             p.message3d = f"Flow matches {test.name} as solved"
+        elif state == "unconverged":
+            p.message3d = f"Flow of {test.name} is from a run that did NOT converge"
         elif state == "preview":
             p.message3d = (f"Preview for {test.name}: particles slide around its surface; "
                            f"OpenFOAM flow {'on its way' if p.auto_resolve else 'needs Solve 3D'}")
@@ -1053,12 +1068,14 @@ class WT_PT_panel(bpy.types.Panel):
         if p.cells3d:
             col = box.column(align=True)
             who = p.forces_body or p.body3d
-            if field_state(context.scene)[1] != "solved":
+            if field_state(context.scene)[1] not in ("solved", "unconverged"):
                 col.alert = True
                 who += " (last solve, not the Test Object)"
-            col.label(text=f"{who}: {p.cells3d:,} cells")
-            col.label(text=f"Drag {p.drag:.2f} N   Lift {p.lift:.2f} N   Side {p.side:.2f} N")
-            col.label(text=f"Cd {p.cd3d:.3f}   Cl {p.cl3d:.3f}   (frontal area {p.area3d:.4f} m²)")
+            col.label(text=f"{who}: {p.cells3d:,} cells, frontal area {p.area3d:.4f} m²")
+            verdict = col.column(align=True)
+            verdict.alert = not p.converged3d
+            for line in (p.verdict3d or "Not converged:\nno convergence record").splitlines():
+                verdict.label(text=line)
 
         if not len(p.results):
             return

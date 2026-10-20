@@ -27,7 +27,7 @@ class Setup3D:
     surface_levels: tuple = (3, 4)  # refinement on the body: each level halves the cell
     wake_level: int = 2           # refinement in the box around and behind the body
     layers: int = 2               # prism layers on the body (snappy drops them where it cannot fit them)
-    iterations: int = 600
+    iterations: int = 3000        # cap; the convergence gate (convergence.py) normally stops earlier
     write_every: int = 100
     procs: int = 8
     voxels_per_L: int = 40        # resolution of the grid handed to Blender
@@ -292,6 +292,19 @@ writeCompression off;
 timeFormat      general;
 timePrecision   6;
 runTimeModifiable true;
+
+// Convergence gate (FIX_PLAN step 2, docs/reference/step2_convergence_reference.md): forces and the
+// p residual every iteration; convergence.py checks them every 5 and writes wt_stop on a pass.
+functions
+{{
+    forces {{ type forces; libs (forces); patches (body); rho rhoInf; rhoInf {s.rho:.8g}; CofR (0 0 0);
+             writeControl timeStep; writeInterval 1; log off; }}
+    solverInfo {{ type solverInfo; libs (utilityFunctionObjects); fields (p); writeResidualFields no;
+                 writeControl timeStep; writeInterval 1; }}
+    gate {{ type systemCall; libs (utilityFunctionObjects); master yes; executeControl timeStep;
+           executeInterval 5; writeControl none; executeCalls ("python3 convergence.py . --trigger"); }}
+    stop {{ type abort; libs (utilityFunctionObjects); file "wt_stop"; action writeNow; }}
+}}
 """)
     w(sysd / "fvSchemes", "dictionary", "fvSchemes", """ddtSchemes { default steadyState; }
 gradSchemes
@@ -323,7 +336,6 @@ SIMPLE
 {
     nNonOrthogonalCorrectors 1;
     consistent yes;
-    residualControl { p 1e-5; U 1e-6; "(k|omega)" 1e-6; }
 }
 potentialFlow { nNonOrthogonalCorrectors 5; }
 relaxationFactors
@@ -357,8 +369,10 @@ def write_case(root: Path, stl_tris, s: Setup3D, exporter: Path | None = None):
     write_fields(root / "0.orig", s, t["L"])
     if exporter:
         shutil.copy(exporter, root / "export_field.py")
+    shutil.copy(Path(__file__).with_name("convergence.py"), root / "convergence.py")
     vox = t["L"] / s.voxels_per_L
-    exp_args = f"--speed {s.speed} --rho {s.rho} --nu {s.nu} --voxel {vox:.6g} --L {t['L']:.6g}"
+    exp_args = (f"--speed {s.speed} --rho {s.rho} --nu {s.nu} --voxel {vox:.6g} --L {t['L']:.6g} "
+                f"--cap {s.iterations}")
     np_ = s.procs
     mpi = f"mpirun -np {np_} --oversubscribe"
     lines = [
@@ -366,6 +380,8 @@ def write_case(root: Path, stl_tris, s: Setup3D, exporter: Path | None = None):
         "export OMPI_ALLOW_RUN_AS_ROOT=1 OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 OMPI_MCA_btl_vader_single_copy_mechanism=none",
         "cd \"$(dirname \"$0\")\"",
         "fail() { echo \"failed $1\" > status; exit 1; }",
+        # systemCall (the convergence gate) is fatal as root (systemCall.C:123)
+        "[ \"$(id -u)\" != 0 ] || fail \"as root: the convergence gate cannot run as root; set a normal default user in WSL\"",
         "echo meshing > status",
         "surfaceFeatureExtract > log.surfaceFeatureExtract 2>&1 || fail surfaceFeatureExtract",
         "blockMesh > log.blockMesh 2>&1 || fail blockMesh",
@@ -376,6 +392,7 @@ def write_case(root: Path, stl_tris, s: Setup3D, exporter: Path | None = None):
         "for d in processor*; do rm -rf \"${d:?}/0\"; cp -r 0.orig \"$d/0\"; done",
         f"{mpi} checkMesh -parallel -constant > log.checkMesh 2>&1 || true",
         "echo solving > status",
+        "rm -f wt_stop",
         f"{mpi} simpleFoam -parallel > log.simpleFoam 2>&1 || fail simpleFoam",
         "echo exporting > status",
         "reconstructParMesh -constant > log.reconstructParMesh 2>&1 || fail reconstructParMesh",

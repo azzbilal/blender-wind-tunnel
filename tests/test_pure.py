@@ -244,6 +244,373 @@ class CpReference(unittest.TestCase):
         json.dumps(rec)                                     # must stay serialisable
 
 
+FORCE_HEAD = ("# Force        \n# CofR         : (0.0000000e+00 0.0000000e+00 0.0000000e+00)\n#\n"
+              "# Time         \ttotal_x total_y total_z\tpressure_x pressure_y pressure_z\tviscous_x viscous_y viscous_z\n")
+RES_HEAD = ("# Solver information\n# Time         \tp_solver       \tp_initial      \tp_final        "
+            "\tp_iters        \tp_converged    \n")
+
+
+def write_history(case: Path, start, times, fx, fy, fz, p_initial):
+    """postProcessing/forces/<start>/force.dat and solverInfo/<start>/solverInfo.dat as v2512 writes them."""
+    fd = case / "postProcessing" / "forces" / str(start)
+    sd = case / "postProcessing" / "solverInfo" / str(start)
+    fd.mkdir(parents=True, exist_ok=True)
+    sd.mkdir(parents=True, exist_ok=True)
+    f_rows = "".join(f"{t:<15} {x:.7e} {y:.7e} {z:.7e} {x:.7e} {y:.7e} {z:.7e} 0 0 0\n"
+                     for t, x, y, z in zip(times, fx, fy, fz))
+    r_rows = "".join(f"{t:<15}\tGAMG\t{r:.7e}\t1e-5\t3\ttrue\n" for t, r in zip(times, p_initial))
+    (fd / "force.dat").write_text(FORCE_HEAD + f_rows, newline="\n")
+    (sd / "solverInfo.dat").write_text(RES_HEAD + r_rows, newline="\n")
+
+
+def steady(n, fx=1000.0, rel=0.0, res=5e-4, first=1):
+    """n iterations from `first`: Fx alternating between fx and fx (1 + rel), constant residual."""
+    times = list(range(first, first + n))
+    return (times, [fx * (1 + rel * (t % 2)) for t in times], [3.0] * n, [-2.0] * n, [res] * n)
+
+
+class ConvergenceParsers(unittest.TestCase):
+    """FIX_PLAN step 2: postProcessing readers (docs/reference/step2_convergence_reference.md, file formats)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cv = importlib.import_module("wind_tunnel.convergence")
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.case = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_columns_from_last_header_line(self):
+        path = self.case / "x.dat"
+        path.write_text("# Solver information\n# Time\tp_initial\tp_solver\n5\t1e-3\tGAMG\n", newline="\n")
+        names, rows = self.cv.read_dat(path)
+        self.assertEqual(names, ["Time", "p_initial", "p_solver"])
+        self.assertEqual(rows, [["5", "1e-3", "GAMG"]])
+
+    def test_incomplete_last_line_dropped(self):
+        path = self.case / "x.dat"
+        path.write_text(RES_HEAD + "1\tGAMG\t1e-2\t1e-5\t3\ttrue\n2\tGAMG\t9.5e-3\t1e-5\t3\ttr", newline="\n")
+        self.assertEqual(len(self.cv.read_dat(path)[1]), 1)
+        # all the fields there, but the number may be cut short: still no trailing newline, still dropped
+        path.write_text(RES_HEAD + "1\tGAMG\t1e-2\t1e-5\t3\ttrue\n2\tGAMG\t9.5e-3\t1e-5\t3\ttrue", newline="\n")
+        self.assertEqual(len(self.cv.read_dat(path)[1]), 1)
+
+    def test_history_aligns_forces_and_residuals(self):
+        times, fx, fy, fz, res = steady(5)
+        write_history(self.case, 0, times, fx, fy, fz, res)
+        h = self.cv.history(self.case)
+        self.assertEqual(h["time"], [1, 2, 3, 4, 5])
+        self.assertEqual(h["fx"], fx)
+        self.assertEqual(h["fy"], fy)
+        self.assertEqual(h["fz"], fz)
+        self.assertEqual(h["p_initial"], res)
+
+    def test_restart_dirs_merged_numerically_later_wins(self):
+        write_history(self.case, 900, *steady(150, fx=1.0, first=901))        # 901..1050
+        write_history(self.case, 1000, *steady(100, fx=2.0, first=1001))      # 1001..1100 (lexically first)
+        h = self.cv.history(self.case)
+        self.assertEqual(h["time"], list(range(901, 1101)))
+        self.assertEqual(h["fx"][h["time"].index(1000)], 1.0)
+        self.assertEqual(h["fx"][h["time"].index(1001)], 2.0)
+        self.assertEqual(h["fx"][-1], 2.0)
+
+    def test_no_history(self):
+        h = self.cv.history(self.case)
+        self.assertEqual(h["time"], [])
+
+
+class ConvergenceGate(unittest.TestCase):
+    """FIX_PLAN step 2, decision Q2 (and Q5: both criteria hard, residual trend reported)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cv = importlib.import_module("wind_tunnel.convergence")
+
+    def test_constants(self):
+        self.assertEqual((self.cv.WINDOW, self.cv.BAND, self.cv.RESIDUAL, self.cv.MIN_ITER), (200, 0.005, 1e-3, 400))
+
+    def test_band_just_under_passes(self):
+        v = self.cv.gate(*steady(600, rel=0.0049))
+        self.assertTrue(v["converged"], v["reasons"])
+        self.assertEqual(v["reasons"], [])
+        self.assertAlmostEqual(v["band"], 0.0049 / 1.00245, places=9)
+        self.assertEqual(v["iteration"], 600)
+        self.assertEqual(v["window"], (401, 600))
+
+    def test_band_just_over_fails(self):
+        v = self.cv.gate(*steady(600, rel=0.0051))
+        self.assertFalse(v["converged"])
+        self.assertEqual(len(v["reasons"]), 1)
+        self.assertIn("Cd band", v["reasons"][0])
+
+    def test_band_uses_only_the_window(self):
+        times, fx, fy, fz, res = steady(600)
+        fx[400] = 5000.0                       # iteration 401: inside the window
+        self.assertFalse(self.cv.gate(times, fx, fy, fz, res)["converged"])
+        fx[400], fx[399] = 1000.0, 5000.0      # iteration 400: just outside it
+        self.assertTrue(self.cv.gate(times, fx, fy, fz, res)["converged"])
+
+    def test_residual_just_under_passes(self):
+        self.assertTrue(self.cv.gate(*steady(600, res=9.9e-4))["converged"])
+
+    def test_residual_just_over_fails(self):
+        v = self.cv.gate(*steady(600, res=1.01e-3))
+        self.assertFalse(v["converged"])
+        self.assertEqual(len(v["reasons"]), 1)
+        self.assertIn("p residual", v["reasons"][0])
+        self.assertAlmostEqual(v["residual"], 1.01e-3)
+
+    def test_residual_is_the_last_iteration(self):
+        times, fx, fy, fz, res = steady(600, res=2e-3)
+        res[-1] = 9e-4
+        self.assertTrue(self.cv.gate(times, fx, fy, fz, res)["converged"])
+
+    def test_before_400_never_converged(self):
+        v = self.cv.gate(*steady(399))
+        self.assertFalse(v["converged"])
+        self.assertTrue(any("400" in r for r in v["reasons"]))
+
+    def test_window_must_be_full(self):
+        """A history that starts late (restart) cannot pass on fewer than 200 iterations."""
+        v = self.cv.gate(*steady(150, first=451))     # 451..600
+        self.assertFalse(v["converged"])
+        self.assertTrue(any("200" in r for r in v["reasons"]))
+
+    def test_cap_reached(self):
+        v = self.cv.gate(*steady(3000, res=2e-3), cap=3000)
+        self.assertFalse(v["converged"])
+        self.assertIn("3000", v["reasons"][0])
+        self.assertTrue(any("p residual" in r for r in v["reasons"]))
+
+    def test_cap_not_a_reason_when_converged(self):
+        self.assertTrue(self.cv.gate(*steady(3000), cap=3000)["converged"])
+
+    def test_residual_trend_orders_per_100(self):
+        """Q5: the reasons say whether the p residual is still falling (orders of magnitude per 100 iterations)."""
+        times, fx, fy, fz, _ = steady(1200)
+        res = [10 ** (-1.7 - 0.0009 * t) for t in times]     # cube-like: -0.09 orders per 100 iterations
+        v = self.cv.gate(times, fx, fy, fz, res)
+        self.assertAlmostEqual(v["residual_trend"], -0.09, places=6)
+        self.assertFalse(v["converged"])
+        self.assertTrue(any("-0.09 orders per 100 iterations" in r for r in v["reasons"]))
+
+    def test_window_statistics(self):
+        times, fx, fy, fz, res = steady(600, rel=0.004)
+        fy = [float(t % 3) for t in times]
+        v = self.cv.gate(times, fx, fy, fz, res)
+        self.assertAlmostEqual(v["fx"]["mean"], 1002.0)
+        self.assertEqual((v["fx"]["min"], v["fx"]["max"]), (1000.0, 1004.0))
+        self.assertEqual((v["fy"]["min"], v["fy"]["max"]), (0.0, 2.0))
+        self.assertEqual(v["fz"]["mean"], -2.0)
+
+    def test_empty_history(self):
+        v = self.cv.gate([], [], [], [], [])
+        self.assertFalse(v["converged"])
+        self.assertTrue(v["reasons"])
+
+
+class ConvergenceTrigger(unittest.TestCase):
+    """`python3 convergence.py <case> --trigger`, run by the systemCall function object every 5 iterations."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cv = importlib.import_module("wind_tunnel.convergence")
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.case = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_pass_writes_stop_file(self):
+        write_history(self.case, 0, *steady(600))
+        self.assertEqual(self.cv.main([str(self.case), "--trigger"]), 0)
+        self.assertEqual((self.case / "wt_stop").read_text(), "action=writeNow\n")
+
+    def test_open_gate_writes_nothing(self):
+        write_history(self.case, 0, *steady(600, res=2e-3))
+        self.assertEqual(self.cv.main([str(self.case), "--trigger"]), 0)
+        self.assertFalse((self.case / "wt_stop").exists())
+
+    def test_no_history_is_not_an_error(self):
+        self.assertEqual(self.cv.main([str(self.case), "--trigger"]), 0)
+        self.assertFalse((self.case / "wt_stop").exists())
+
+    def test_unreadable_history_is_not_an_error(self):
+        d = self.case / "postProcessing" / "forces" / "0"
+        d.mkdir(parents=True)
+        (d / "force.dat").write_text("# Time total_x total_y total_z\n1 abc 0 0\n", newline="\n")
+        self.assertEqual(self.cv.main([str(self.case), "--trigger"]), 0)
+        self.assertFalse((self.case / "wt_stop").exists())
+
+
+class Case3DGate(unittest.TestCase):
+    """FIX_PLAN step 2: the controlDict, fvSolution and Allrun text case3d writes (design constraints 2, 3)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name) / "3d_Cube"
+        self.s = case3d.Setup3D(rho=1.2, iterations=2500)
+        self.script, _ = case3d.write_case(self.root, cube_triangles(), self.s)
+        self.cd = (self.root / "system/controlDict").read_text()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _entry(self, key):
+        return [ln.split()[1].rstrip(";") for ln in self.cd.splitlines() if ln.split()[:1] == [key]]
+
+    def test_default_cap_3000(self):
+        self.assertEqual(case3d.Setup3D().iterations, 3000)
+
+    def test_end_time_is_the_cap(self):
+        self.assertEqual(self._entry("endTime"), ["2500"])
+
+    def test_function_objects_in_order(self):
+        pos = [self.cd.index(f"type {t};") for t in ("forces", "solverInfo", "systemCall", "abort")]
+        self.assertEqual(pos, sorted(pos))
+
+    def test_forces_fo(self):
+        fo = self.cd[self.cd.index("type forces;"):self.cd.index("type solverInfo;")]
+        for txt in ("patches (body);", "rho rhoInf;", "rhoInf 1.2;", "CofR (0 0 0);",
+                    "writeControl timeStep;", "writeInterval 1;"):
+            self.assertIn(txt, fo)
+
+    def test_solver_info_fo(self):
+        fo = self.cd[self.cd.index("type solverInfo;"):self.cd.index("type systemCall;")]
+        self.assertIn("fields (p);", fo)
+        self.assertIn("writeResidualFields no;", fo)
+
+    def test_gate_and_stop_fo(self):
+        gate = self.cd[self.cd.index("type systemCall;"):self.cd.index("type abort;")]
+        for txt in ("master yes;", "executeControl timeStep;", "executeInterval 5;", "writeControl none;",
+                    'executeCalls ("python3 convergence.py . --trigger");'):
+            self.assertIn(txt, gate)
+        stop = self.cd[self.cd.index("type abort;"):]
+        self.assertIn('file "wt_stop";', stop)
+        self.assertIn("action writeNow;", stop)
+
+    def test_no_residual_control(self):
+        self.assertNotIn("residualControl", (self.root / "system/fvSolution").read_text())
+
+    def test_gate_script_copied(self):
+        self.assertTrue((self.root / "convergence.py").exists())
+
+    def test_allrun_clears_stop_file_before_solve(self):
+        lines = self.script.read_text().splitlines()
+        rm = [i for i, ln in enumerate(lines) if ln.strip() == "rm -f wt_stop"]
+        solve = [i for i, ln in enumerate(lines) if "simpleFoam -parallel" in ln]
+        self.assertEqual(len(rm), 1)
+        self.assertLess(rm[0], solve[0])
+
+    def test_allrun_refuses_root_before_meshing(self):
+        """systemCall is fatal as root (systemCall.C:123): fail at once with a clear status."""
+        lines = self.script.read_text().splitlines()
+        root = [i for i, ln in enumerate(lines) if "id -u" in ln]
+        mesh = [i for i, ln in enumerate(lines) if ln.startswith("blockMesh")]
+        self.assertEqual(len(root), 1)
+        self.assertLess(root[0], mesh[0])
+
+    def test_export_gets_the_cap(self):
+        self.assertIn("--cap 2500", self.script.read_text())
+
+
+class ExportVerdict(unittest.TestCase):
+    """FIX_PLAN step 2 design constraint 4: forces.json verdict keys from the full history."""
+
+    @classmethod
+    def setUpClass(cls):
+        global np
+        import numpy as np
+        cls.ef = importlib.import_module("wind_tunnel.export_field")
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.case = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    KEYS = {"converged", "reasons", "iterations", "window", "Cd_band", "p_initial", "p_trend",
+            "Cd_mean", "Cd_min", "Cd_max", "Cl_mean", "Cl_min", "Cl_max", "Cs_mean", "Cs_min", "Cs_max",
+            "drag_N_mean", "lift_N_mean", "side_N_mean"}
+
+    def test_converged_record(self):
+        write_history(self.case, 0, *steady(601, rel=0.004))
+        rec = self.ef.verdict_record(self.case, 3000, 4.0, 20.0, 1.225)
+        self.assertEqual(set(rec), self.KEYS)
+        q = 0.5 * 1.225 * 20.0 ** 2
+        self.assertIs(rec["converged"], True)
+        self.assertEqual(rec["reasons"], [])
+        self.assertEqual(rec["iterations"], 601)
+        self.assertEqual(rec["window"], [402, 601])
+        self.assertAlmostEqual(rec["drag_N_mean"], 1002.0)
+        self.assertAlmostEqual(rec["Cd_mean"], 1002.0 / (q * 4.0))
+        self.assertAlmostEqual(rec["Cd_max"], 1004.0 / (q * 4.0))
+        self.assertAlmostEqual(rec["Cl_mean"], -2.0 / (q * 4.0))
+        self.assertAlmostEqual(rec["Cs_mean"], 3.0 / (q * 4.0))
+        self.assertAlmostEqual(rec["side_N_mean"], 3.0)
+        self.assertAlmostEqual(rec["lift_N_mean"], -2.0)
+        json.dumps(rec)
+
+    def test_no_history_not_converged(self):
+        rec = self.ef.verdict_record(self.case, 3000, 4.0, 20.0, 1.225)
+        self.assertIs(rec["converged"], False)
+        self.assertTrue(rec["reasons"])
+        json.dumps(rec)
+
+
+class Verdict3D(unittest.TestCase):
+    """FIX_PLAN step 2 decision Q4: what the panel shows, and which runs count as solved."""
+
+    CONVERGED = {"converged": True, "reasons": [], "iterations": 1437, "Cd_band": 0.0031, "p_initial": 9.87e-4,
+                 "Cd_mean": 1.1512, "Cd_min": 1.1490, "Cd_max": 1.1526, "Cl_mean": 0.0012, "Cl_min": -0.03,
+                 "Cl_max": 0.03, "Cs_mean": -0.0021, "Cs_min": -0.04, "Cs_max": 0.04,
+                 "drag_N_mean": 1128.3, "lift_N_mean": 1.2, "side_N_mean": -2.1, "Cd": 1.30}
+
+    def test_converged_flag(self):
+        self.assertTrue(results.forces_converged(self.CONVERGED))
+        self.assertFalse(results.forces_converged({"converged": False}))
+        self.assertFalse(results.forces_converged({"Cd": 1.26}))          # v0.4.x forces.json
+        self.assertFalse(results.forces_converged({"converged": "yes"}))
+
+    def test_converged_lines(self):
+        lines = results.verdict_lines(self.CONVERGED)
+        self.assertEqual(lines[0], "Converged at iteration 1437: p residual 9.9e-04, Cd band 0.31 %")
+        self.assertIn("Cd 1.151 (1.149 to 1.153)", lines[1])
+        self.assertTrue(any("Drag 1128.30 N" in ln for ln in lines))
+        self.assertFalse(any("1.30" in ln for ln in lines))               # never the snapshot Cd
+
+    def test_not_converged_lines_have_no_numbers_of_forces(self):
+        f = dict(self.CONVERGED, converged=False,
+                 reasons=["stopped at the cap of 3000 iterations", "p residual 1.6e-03 >= 1e-3"])
+        lines = results.verdict_lines(f)
+        self.assertEqual(lines[0], "Not converged:")
+        self.assertEqual(lines[1:], ["stopped at the cap of 3000 iterations", "p residual 1.6e-03 >= 1e-3"])
+        self.assertFalse(any("Cd " in ln or "Drag" in ln for ln in lines))
+
+    def test_v04_case_is_not_converged(self):
+        lines = results.verdict_lines({"Cd": 1.26, "drag_N": 1200.0})
+        self.assertEqual(lines[0], "Not converged:")
+        self.assertIn("no convergence record", lines[1])
+
+    def test_progress_reads_first_p_solve_of_last_iteration(self):
+        log = ("Time = 401\n\nsmoothSolver:  Solving for Ux, Initial residual = 0.1, Final residual = 0.01\n"
+               "GAMG:  Solving for p, Initial residual = 0.0236, Final residual = 1e-3, No Iterations 3\n"
+               "GAMG:  Solving for p, Initial residual = 0.0041, Final residual = 1e-4, No Iterations 2\n"
+               "ExecutionTime = 1 s\n\nTime = 402\n\n"
+               "GAMG:  Solving for p, Initial residual = 0.0230, Final residual = 1e-3, No Iterations 3\n"
+               "GAMG:  Solving for p, Initial residual = 0.0040, Final residual = 1e-4, No Iterations 2\n"
+               "ExecutionTime = 2 s\n\nTime = 403\n\nsmoothSolver:  Solving for Ux, Initial residual = 0.1\n")
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "log.simpleFoam").write_text(log, newline="\n")
+            self.assertEqual(results.progress(Path(d)), (403, 0.0230))
+
+
 class Step0Check(unittest.TestCase):
     def test_nu_read_from_case(self):
         spec = importlib.util.spec_from_file_location("step0_check", REPO / "tools" / "audit" / "step0_check.py")

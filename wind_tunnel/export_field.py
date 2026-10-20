@@ -21,6 +21,11 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial import cKDTree
 
+try:
+    from . import convergence
+except ImportError:                 # run as a script next to convergence.py
+    import convergence
+
 NUM = rb"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 
 
@@ -268,6 +273,24 @@ def forces_record(t, ncells, Fp, Fv, Af, speed, rho, p_inf):
             "p_inf_Pa": rho * p_inf, "p_inf_Cp_vs_outlet": p_inf / (0.5 * speed ** 2)}
 
 
+def verdict_record(case, cap, Af, speed, rho):
+    """forces.json convergence keys (FIX_PLAN step 2): the gate verdict at the last recorded iteration
+    of the full history, Cd/Cl/Cs as window mean/min/max and the forces (N) as window means, all from
+    the forces function object. Cd = Fx, Cs = Fy, Cl = Fz, each over q A_frontal."""
+    h = convergence.history(case)
+    v = convergence.gate(h["time"], h["fx"], h["fy"], h["fz"], h["p_initial"], cap=cap)
+    qa = 0.5 * rho * speed ** 2 * Af
+    rec = {"converged": v["converged"], "reasons": v["reasons"], "iterations": v["iteration"],
+           "window": list(v["window"]) if v["window"] else None, "Cd_band": v["band"],
+           "p_initial": v["residual"], "p_trend": v["residual_trend"]}
+    for c, k in (("Cd", "fx"), ("Cs", "fy"), ("Cl", "fz")):
+        for s in ("mean", "min", "max"):
+            rec[f"{c}_{s}"] = v[k][s] / qa if v[k] else None
+    for name, k in (("drag_N", "fx"), ("side_N", "fy"), ("lift_N", "fz")):
+        rec[f"{name}_mean"] = v[k]["mean"] if v[k] else None
+    return rec
+
+
 def write_field_npz(path, origin, voxel, U, p, solid, speed, rho, p_inf):
     """field.npz: U (m/s) and p = rho (p - p_inf) in Pa on the voxel grid, both 0 inside the body.
     p and p_inf are kinematic; viz3d.write_vdb turns p into cp = p / (0.5 rho U^2)."""
@@ -288,6 +311,7 @@ def main():
     ap.add_argument("--voxel", type=float, required=True)
     ap.add_argument("--L", type=float, required=True)
     ap.add_argument("--max-voxels", type=int, default=4_000_000)
+    ap.add_argument("--cap", type=int, default=None, help="iteration cap (controlDict endTime)")
     a = ap.parse_args()
     case = Path(a.case)
     pm = case / "constant" / "polyMesh"
@@ -317,6 +341,7 @@ def main():
     tris = arr["v"].astype(float)
     Af = frontal_area(tris)
     forces = forces_record(t, ncells, Fp, Fv, Af, a.speed, a.rho, p_inf)
+    forces.update(verdict_record(case, a.cap, Af, a.speed, a.rho))
     (case / "forces.json").write_text(json.dumps(forces, indent=2))
     print(json.dumps(forces), flush=True)
 

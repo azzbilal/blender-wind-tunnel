@@ -245,17 +245,42 @@ def analyse(case: Path, nu: float, alpha_deg: float, mesh: Mesh | None = None, l
 
 
 def progress(case: Path):
-    """(iteration, latest pressure residual) from the end of a running solver's log, or (0, None)."""
+    """(iteration, p residual) from the end of a running solver's log, or (0, None). The residual is
+    the first p solve of the last iteration that has one, the value the 3D convergence gate tests."""
     log = Path(case) / "log.simpleFoam"
     if not log.exists():
         return 0, None
     with open(log, "rb") as f:
         f.seek(0, 2)
         f.seek(max(0, f.tell() - 8000))
-        tail = f.read().decode("utf-8", "replace")
+        tail = "\n" + f.read().decode("utf-8", "replace")
     its = re.findall(r"\nTime = (\d+)", tail)
-    res = re.findall(r"Solving for p, Initial residual = (" + _NUM + ")", tail)
-    return (int(its[-1]) if its else 0), (float(res[-1]) if res else None)
+    res = None
+    for block in reversed(re.split(r"\nTime = \d+", tail)):
+        m = re.search(r"Solving for p, Initial residual = (" + _NUM + ")", block)
+        if m:
+            res = float(m.group(1))
+            break
+    return (int(its[-1]) if its else 0), res
+
+
+def forces_converged(f: dict) -> bool:
+    """True only for a forces.json whose convergence gate passed (FIX_PLAN step 2). Files written
+    before 0.4.3 have no `converged` key and count as not converged."""
+    return f.get("converged") is True
+
+
+def verdict_lines(f: dict):
+    """Panel lines for a finished 3D run (grill Q4): window means (min to max) only when converged,
+    otherwise the reasons and no coefficients or forces."""
+    if not forces_converged(f):
+        reasons = f.get("reasons") if "converged" in f else None
+        return ["Not converged:"] + (reasons or ["no convergence record (solved before 0.4.3): Solve 3D again"])
+    r = lambda k: f"{k} {f[k + '_mean']:.3f} ({f[k + '_min']:.3f} to {f[k + '_max']:.3f})"
+    return [f"Converged at iteration {f['iterations']}: p residual {f['p_initial']:.1e}, "
+            f"Cd band {100 * f['Cd_band']:.2f} %",
+            f"{r('Cd')}   {r('Cl')}   {r('Cs')}",
+            f"Drag {f['drag_N_mean']:.2f} N   Lift {f['lift_N_mean']:.2f} N   Side {f['side_N_mean']:.2f} N"]
 
 
 # NASA Turbulence Modeling Resource, NACA 0012 at Re 6e6, SST model (CFL3D, finest grid).
