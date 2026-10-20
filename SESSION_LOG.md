@@ -257,7 +257,72 @@ terms and add a glossary; never call a result validated without a cited referenc
 ### Decisions locked by the grill
 | # | Answer |
 |---|---|
-| Q1 | `forceCoeffs` function object every iteration plus `runTimeControl` stopping and writing inside OpenFOAM; a pure Python `gate(history)` in export_field.py reads the same FO file and the log and writes the verdict into forces.json (authority for the panel) |
+| Q1 | AMENDED in Stage 3 (Bilal's go): `forces` + `solverInfo` FOs every iteration, `systemCall` (`master yes`) runs our stdlib-only gate every 5 iterations, which writes `<case>/wt_stop` on pass; `abort` FO (`action writeNow`) stops. Reason: `averageCondition` bounds abs(window mean - current) (valueAverageBaseTemplates.C:153-162), weaker than the band. `forces` (N), not `forceCoeffs`, because Aref (frontal area) is only known in export_field |
 | Q2 | Converged at iteration n when (max - min)/abs(mean) of Cd over n-199..n < 0.5 %, the first p solve's normalised initial residual < 1e-3 (iteration 1 reads 1.0), and n >= 400; cap 3000 (panel Iterations becomes the cap); fvSolution residualControl removed. Report Cd, Cl, Cs mean/min/max over the window; only Cd gated |
 | Q3 | Fresh v2512 Cube and Cone in ~/wind_tunnel/_step2: gated run, then continue ungated to 2000; offline gate on the full history must agree with the runTimeControl stop. Accept: (a) gate open at 400 and 800 on the cube; (b) mean of 1801-2000 within 1 % of the reported mean; (c) cone reported mean within 1 % of 0.583. Cube reported against 1.151 (and 1.151-1.173), not gated |
 | Q4 | Converged: "Converged at iteration N: p residual r, Cd band b %" then window means (min to max), forces in N as window means. Not converged (cap or stopped): reasons only, no Cd/Cl/forces. Solving: iteration and p residual. field_state "solved" only with forces.json converged true; finished unconverged runs load the field as new state "unconverged"; _cached reads the same flag, so v0.4.x cases show as not converged |
+
+### Done so far (stages 0 to 3)
+- Stage 0: review report committed (8d36306), required fixes (4846d09). Stage 1: 26 run, 23 pass,
+  3 expected failures; `_audit` present (3.2 GB).
+- Stage 3: docs/reference/step2_convergence_reference.md (0724640). Probe on a copy of the v2512
+  cube (`~/wind_tunnel/_step2/probe`, 130 MB, serial): forces/solverInfo/systemCall/abort chain
+  works; abort writes one iteration after the trigger (gate passed at 402, `403/` written).
+  Serial cost about 1.2 to 1.7 s per iteration on 359,240 cells.
+- Audit Cd (50-iteration saves, history.py, v1912): cube 1.173 (750), 1.165 (800), 1.155 (1000),
+  1.151 (1200); cone 0.583 from 650 on. p initial residual: cube 0.00164 at 1200 (2.79 orders),
+  cone 0.00014 (3.85 orders). The cube will not pass the residual test by 1200; about 1450 by
+  extrapolation of the 1000-1200 trend (not measured).
+
+### Design constraints for Stage 4 (from the reference and the advisor review)
+1. New pure stdlib module `wind_tunnel/convergence.py` (no numpy, no bpy): parse force.dat and
+   solverInfo.dat (column names from the last `#` line, drop an incomplete last line, merge all
+   `<startTime>` dirs sorted, later rows win), `gate(times, fx, fy, fz, p_initial) -> dict` with
+   converged, reasons, iteration, band, residual, window Fx/Fy/Fz mean/min/max. CLI mode
+   `python3 convergence.py <case> --trigger` writes `wt_stop` (content `action=writeNow`) on pass.
+   case3d copies it next to export_field.py; export_field imports it.
+2. controlDict: `functions { forces {...; patches (body); rho rhoInf; rhoInf <rho>; CofR (0 0 0);
+   writeControl timeStep; writeInterval 1; log off;} solverInfo {fields (p); writeResidualFields no;}
+   gate {type systemCall; master yes; executeControl timeStep; executeInterval 5; writeControl none;
+   executeCalls ("python3 convergence.py . --trigger");} stop {type abort; file "<case>/wt_stop";
+   action writeNow;} }` in that order; `endTime` = cap; residualControl removed from fvSolution.
+3. Allrun: `rm -f wt_stop` before simpleFoam. Check the systemCall working directory is the case
+   (probe used a relative `bash probe_gate.sh` and it worked from the case dir).
+4. export_field: final verdict at the written time from the full history -> forces.json
+   `converged`, `reasons`, `iterations`, `Cd_band`, `p_initial`, window `Cd/Cl/Cs` mean/min/max and
+   `drag_N/lift_N/side_N` window means under new keys; existing snapshot keys unchanged.
+5. __init__.py: `iterations3d` default 3000, min 400 (cap); panel per Q4; `field_state` "solved"
+   only with `converged: true`, new "unconverged"; `_cached` reads the flag; status "stopped"
+   never solved. Progress line shows iteration and p residual (results.progress).
+6. Stage 5 continuation to 2000: delete `wt_stop`, drop gate and stop FOs from the copy's
+   controlDict, set endTime 2000, run, then offline gate on the merged history.
+7. Latent rho coupling from the step 1 review: forces FO `rhoInf` must come from Setup3D.rho.
+
+### Open issues (added this session)
+- `~/wind_tunnel/_review1` (118 MB, step 1 reviewer's Sphere copy) and `_step2/probe` (130 MB)
+  can be deleted; ask Bilal.
+- If a user's WSL default user is root, systemCall is fatal (systemCall.C:123); Allrun should
+  check `id -u` and fail with a clear message.
+
+### NEXT PROMPT (FIX_PLAN step 2, continue at Stage 4)
+```
+FRESH SESSION. Slice: FIX_PLAN step 2 (convergence gate), continue at Stage 4.
+CONTEXT TO LOAD: CLAUDE.md, docs/reference/step2_convergence_reference.md, SESSION_LOG.md last
+entry (decisions Q1 amended to Q4, design constraints 1 to 7). Do not redo the grill or Stage 3.
+STAGE 4 TDD: red, then green: convergence.py parsers (header-driven, partial last line, merged
+restart dirs), gate() on synthetic histories (band just under / over 0.5 %, residual just under /
+over 1e-3, n < 400, cap reached), the --trigger CLI, case3d controlDict/Allrun text (FO order,
+endTime = cap, no residualControl, rm -f wt_stop, convergence.py copied), export_field verdict keys,
+and field_state/_cached logic where it can be tested without bpy.
+STAGE 5 TRACER: fresh v2512 Cube and Cone from the new Allrun in ~/wind_tunnel/_step2 (8 procs
+or more), gated; then continue each ungated to 2000 (constraint 6). Record stop iteration, lag,
+Cd/Cl/Cs mean/min/max, band, residual, offline-gate agreement, and acceptance (a) to (c) plus the
+cube vs 1.151 in validation/step2_gate_v2512.json.
+STAGE 6: QA in Bilal's live Blender through the Blender MCP (new scene, never his own objects):
+converged, not converged and solving wordings; wait for his OK.
+STAGE 7: tests, deploy, smoke check, version 0.4.3 (manifest and bl_info), commit stating how Cd
+changed and by how much versus the 400-iteration values (cube 1.2624 v2512, cone 0.5791).
+STAGE 8: append to SESSION_LOG.md with REVIEWER and NEXT prompts.
+RULES: stop at about 100k tokens and write SESSION_LOG.md; no sudo; no em dashes; asterisk the
+terms and add a glossary; never call a result validated without a cited reference value.
+```
