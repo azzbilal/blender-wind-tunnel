@@ -32,36 +32,36 @@ Code against the reference doc (`docs/reference/step0_openfoam_build.md`):
   "Pressure force". `p` is `zeroGradient` on `body` (`case3d.py:247`), so `p_b = p_P` and the
   owner value is the face value. Matches `forces.C:729` `fP = rhoRef*Sfb*(pb - pRef)` with
   `rhoRef = rho(p)` (`forces.C:722`, return of `rhoRef_` for `rho rhoInf` at `forces.C:351`).
-- Viscous force: `export_field.py:235-241`, `rho (nu + nut_w) |Sf| U_t,P / d_n`. Matches the doc's
+- Viscous force: `export_field.py:235-241`, `rho (nu + nut_w) |Sf| U_t,P / d_n`*. Matches the doc's
   "export_field.py" column. OpenFOAM side: `forces.C:731-734` `Sfb & devRhoReff(gradUb)`, and
-  `devRhoReff` returns `-rho*nuEff*devTwoSymm(gradUp)` for the incompressible model
+  `devRhoReff` returns `-rho*nuEff*devTwoSymm(gradUp)`** for the incompressible model
   (`forces.C:231`). `gradU = fvc::grad(U)` at `forces.C:717`.
 - Distance: `export_field.py:236` `d_n = |(C_f - C_P) . n|`. OpenFOAM: `fvPatch.C:158-160`
   (`delta() = nHat*(nHat & (Cf - Cn))`), `basicFvGeometryScheme.C:200`
-  (`deltaCoeffs = 1/mag(p.delta())`), used by `fvPatchField::snGrad` at `fvPatchField.C:225-233`.
+  (`deltaCoeffs = 1/mag(p.delta())`*), used by `fvPatchField::snGrad`* at `fvPatchField.C:225-233`.
   Same definition.
 - Wall gradient: `gaussGrad.C:226-230` replaces the normal row of the boundary gradient with
-  `snGrad()` (the doc's line 228 is correct). The case uses `cellLimited Gauss linear 1`
+  `snGrad()` (the doc's line 228 is correct). The case uses `cellLimited Gauss linear 1`*
   (`case3d.py:300`); `cellLimitedGrad.C:213-214` applies the same wall correction after
   limiting, so the doc's statement holds for the limited scheme too.
 - forceCoeffs: `forceCoeffs.C:160` `pDyn = 0.5*rhoRef_*sqr(magUInf_)`; `:293` lift/drag
   coordinate system; `:311-313` `magUInf`, `lRef`, `Aref` read. Matches the doc.
-- yPlus: `yPlus.C:157` calls `nutWallPatch->yPlus()`; `nutUSpaldingWallFunction...C:342`
+- yPlus: `yPlus.C:157` calls `nutWallPatch->yPlus()`; `nutUSpaldingWallFunction...C:342`*
   `y*calcUTau(mag(Uw.snGrad()))/nuw`; `:65` `nut_w = uTau^2/(magGradU) - nu_w`. Matches the doc.
 - `step0_check.py:21-28` dictionary matches the doc's dictionary, except `lRef` (see below).
 
 **Why FAIL.** The doc states (`step0_openfoam_build.md:58`): "`validate()` recomputes `nut` from
 the stored U." This is false for `simpleFoam -postProcess`:
 
-- `applications/solvers/incompressible/simpleFoam/simpleFoam.C:82` includes `postProcess.H`
+- `applications/solvers/incompressible/simpleFoam/simpleFoam.C:82` includes `postProcess.H`*
   before `turbulence->validate()` at `simpleFoam.C:92`.
 - `OpenFOAM/db/functionObjects/functionObjectList/postProcess.H:110-178` loops over the selected
   times, includes `createFields.H` (`:147`), calls `functionsPtr->execute()` (`:157`) and
   `return 0` (`:178`). Line 92 of simpleFoam.C is never reached.
 - `simpleFoam/createFields.H` contains no `validate` and no `nut` reference (grep, exit 1), and
-  `eddyViscosity.C:67` constructs `nut` with `MUST_READ`.
+  `eddyViscosity.C:67` constructs `nut` with `MUST_READ`*.
 
-So OpenFOAM's `forces` uses the stored `400/nut`, the same file `body_forces` reads
+So OpenFOAM's `forces` uses the stored `400/nut`, the same file `body_forces`* reads
 (`export_field.py:235`). This does not change any number; it makes the comparison tighter than
 the doc claims (identical `nut_w` on both sides), which matters for standard 9.
 `yPlus()` does recompute `uTau` from stored U (`:342`), so the identity
@@ -183,8 +183,8 @@ Notation: `n = Sf/|Sf|` (out of the air, into the body), `d = 1/deltaCoeffs = |n
 - `fV = Sf & [-rho nuEff devTwoSymm(G_b)]
       = -rho nuEff |Sf| [ n.G_b + G_b.n - (2/3) tr(G_b) n ]`, with
   - `n.G_b = snGrad U = -U_t/d - n U_n/d`
-  - `G_b.n = (I - nn).(G_P.n) + n (n . snGrad U) = grad_t(U_n)|_GP - n U_n/d`
-  - `tr(G_b) = [tr G_P - n.G_P.n] - U_n/d = div_t U|_GP - U_n/d`
+  - `G_b.n = (I - nn).(G_P.n) + n (n . snGrad U) = grad_t(U_n)|_GP - n U_n/d`*
+  - `tr(G_b) = [tr G_P - n.G_P.n] - U_n/d = div_t U|_GP - U_n/d`*
 
 Collecting:
 
@@ -227,8 +227,8 @@ A, B and C is not known without a run.
   `r theta` strain rate), about `kappa d = d/R` of the kept term, in the shear direction. The
   cell limiter reduces `G_P` in wall cells, so this is an upper estimate.
 - Sphere: R = 1.0 m from `Aref = F_x/(Cd q) = 127.70/(0.16698 x 245) = 3.12 m^2`
-  (validation JSON). `d` from y+: area-mean y+ = 822; with an assumed mean `tau_w` of about
-  1 Pa (`u_tau` about 0.9 m/s, my assumption, not measured), `d = y+ nu / u_tau` is about
+  (validation JSON). `d` from y+*: area-mean y+ = 822; with an assumed mean `tau_w` of about
+  1 Pa (`u_tau`* about 0.9 m/s, my assumption, not measured), `d = y+ nu / u_tau` is about
   0.014 m, so `d/R` is about 1.4 %. The measured gap is 2.0 % of the viscous x-force. Same order
   of magnitude; this is consistency, not proof.
 - Effect on drag = gap x viscous share: sphere 2.0 % x (9.29/127.70 = 7.3 %) = 0.146 %,
@@ -283,24 +283,24 @@ more correct.
 
 ## Glossary
 
-- `*body_forces`: function in `export_field.py` that sums pressure and wall-shear force over the
+- `body_forces`*: function in `export_field.py` that sums pressure and wall-shear force over the
   faces of the `body` patch.
-- `*cellLimited Gauss linear 1`: Gauss gradient with linear face interpolation, then scaled per
+- `cellLimited Gauss linear 1`*: Gauss gradient with linear face interpolation, then scaled per
   cell so that extrapolated face values stay within the min and max of neighbouring values.
-- `*deltaCoeffs`: inverse of the owner-centre to face distance measured along the face normal.
-- `*devTwoSymm(T)`: `T + T^T - (2/3) tr(T) I`, twice the deviatoric symmetric part of `T`.
-- `*div_t`: surface divergence, the divergence taken only in the two wall-parallel directions.
-- `*grad_t`: tangential gradient, the projection `(I - nn)` of a gradient onto the wall plane.
-- `*MUST_READ`: OpenFOAM read mode for a field that must exist on disk and is taken from the file.
-- `*nuEff`: effective kinematic viscosity `nu + nut`; at a wall the wall-function value of `nut`.
-- `*nut_w`: eddy viscosity on the wall face, set by the wall function so that the wall shear
+- `deltaCoeffs`*: inverse of the owner-centre to face distance measured along the face normal.
+- `devTwoSymm(T)`*: `T + T^T - (2/3) tr(T) I`, twice the deviatoric symmetric part of `T`.
+- `div_t`*: surface divergence, the divergence taken only in the two wall-parallel directions.
+- `grad_t`*: tangential gradient, the projection `(I - nn)` of a gradient onto the wall plane.
+- `MUST_READ`*: OpenFOAM read mode for a field that must exist on disk and is taken from the file.
+- `nuEff`*: effective kinematic viscosity `nu + nut`; at a wall the wall-function value of `nut`.
+- `nut_w`*: eddy viscosity on the wall face, set by the wall function so that the wall shear
   equals `rho u_tau^2`.
-- `*postProcess.H`: the code path behind `solver -postProcess`; it builds fields for each
+- `postProcess.H`*: the code path behind `solver -postProcess`; it builds fields for each
   selected time, runs the function objects and exits without solving.
-- `*snGrad`: surface-normal gradient on a face, `(phi_f - phi_P) * deltaCoeffs`.
-- `*Spalding wall function`: single formula for `u+` against `y+` across the viscous sublayer,
+- `snGrad`*: surface-normal gradient on a face, `(phi_f - phi_P) * deltaCoeffs`.
+- `Spalding wall function`*: single formula for `u+` against `y+` across the viscous sublayer,
   buffer layer and log layer, solved for `u_tau` by Newton iteration.
-- `*u_tau`: friction velocity `sqrt(tau_w / rho)`.
-- `*y+`: wall distance in viscous units, `y u_tau / nu`.
+- `u_tau`*: friction velocity `sqrt(tau_w / rho)`.
+- `y+`*: wall distance in viscous units, `y u_tau / nu`.
 
 Step 0 review: 8 PASS, 1 FAIL
