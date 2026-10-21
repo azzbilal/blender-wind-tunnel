@@ -90,6 +90,10 @@ class WT_Props(bpy.types.PropertyGroup):
     auto_resolve: BoolProperty(name="Auto solve", default=True,
                                description="Solve by itself a few seconds after a Test Object is assigned or changed "
                                            "(a finished solve of the same shape is reused, not repeated)")
+    sweep_axis: EnumProperty(name="Sweep", default="Y",
+                             items=[("X", "X", "Slice faces X and moves along the wind"),
+                                    ("Y", "Y", "Slice faces Y and moves side to side through the body"),
+                                    ("Z", "Z", "Slice faces Z and moves up and down")])
     solved_sig: StringProperty(default="")
     field_stale: BoolProperty(default=False)
     run3d_path: StringProperty(default="")
@@ -562,9 +566,10 @@ def start_run3d(scene, ob):
 def _show_flow(visible):
     """Shows or hides the slice (it only means something for the solved shape). The smoke always
     stays: without a matching field it runs in preview, still reacting to the Test Object's surface."""
-    ob = bpy.data.objects.get("WT Slice")
-    if ob is not None and ob.hide_viewport == visible:
-        ob.hide_viewport = ob.hide_render = not visible
+    for name in ("WT Slice", "WT Legend", "WT Label"):
+        ob = bpy.data.objects.get(name)
+        if ob is not None and ob.hide_viewport == visible:
+            ob.hide_viewport = ob.hide_render = not visible
 
 
 def _world_bounds(ob):
@@ -673,6 +678,33 @@ class WT_OT_stop3d(bpy.types.Operator):
                 wsl.run(["wsl", "-d", p.distro, "-e", "sh", "-c", cmd], timeout=30)
             except Exception as e:
                 self.report({"WARNING"}, str(e))
+        return {"FINISHED"}
+
+
+class WT_OT_slice_animate(bpy.types.Operator):
+    bl_idname = "wind_tunnel.slice_animate"
+    bl_label = "Animate slice"
+    bl_description = ("Sweep WT Slice over plus/minus 1 L about the body along the chosen axis, 192 frames "
+                      "ping-pong, one keyframe per frame (replaces earlier sweep keyframes). The flow is "
+                      "steady: every frame shows the same solved field at the slice's position")
+
+    def execute(self, context):
+        from . import viz3d
+        if bpy.data.objects.get(viz3d.SLICE) is None:
+            self.report({"ERROR"}, "Load a 3D result first (no WT Slice)")
+            return {"CANCELLED"}
+        viz3d.animate_slice(context.scene.wind_tunnel.sweep_axis, 192, context.scene)
+        return {"FINISHED"}
+
+
+class WT_OT_slice_clear(bpy.types.Operator):
+    bl_idname = "wind_tunnel.slice_clear"
+    bl_label = "Clear"
+    bl_description = "Remove the slice sweep keyframes and put WT Slice back through the body centre"
+
+    def execute(self, context):
+        from . import viz3d
+        viz3d.clear_slice_animation()
         return {"FINISHED"}
 
 
@@ -1074,6 +1106,11 @@ class WT_PT_panel(bpy.types.Panel):
             verdict.alert = not p.converged3d
             for line in (p.verdict3d or "Not converged:\nno convergence record").splitlines():
                 verdict.label(text=line)
+            if bpy.data.objects.get("WT Slice") is not None:
+                row = box.row(align=True)
+                row.prop(p, "sweep_axis", expand=True)
+                row.operator("wind_tunnel.slice_animate", icon="ANIM")
+                row.operator("wind_tunnel.slice_clear", icon="X")
 
         if not len(p.results):
             return
@@ -1129,7 +1166,8 @@ class WT_PT_panel(bpy.types.Panel):
 
 
 classes = (WT_Result, WT_Props, WT_OT_check, WT_OT_airfoil, WT_OT_run, WT_OT_load, WT_OT_stop, WT_OT_show,
-           WT_OT_flow, WT_OT_flow_clear, WT_OT_run3d, WT_OT_load3d, WT_OT_stop3d, WT_OT_open, WT_PT_panel)
+           WT_OT_flow, WT_OT_flow_clear, WT_OT_run3d, WT_OT_load3d, WT_OT_stop3d, WT_OT_slice_animate,
+           WT_OT_slice_clear, WT_OT_open, WT_PT_panel)
 
 
 def register():

@@ -38,13 +38,13 @@ def _fresh_mesh(name):
 
 
 def _ramp(ramp, stops):
+    # Blender keeps elements sorted by position, so build them in order instead of moving them.
     els = ramp.color_ramp.elements
-    while len(els) > len(stops):
+    while len(els) > 1:
         els.remove(els[-1])
-    while len(els) < len(stops):
-        els.new(1.0)
-    for el, (pos, col) in zip(els, stops):
-        el.position, el.color = pos, (*col, 1.0)
+    els[0].position, els[0].color = stops[0][0], (*stops[0][1], 1.0)
+    for pos, col in stops[1:]:
+        els.new(pos).color = (*col, 1.0)
 
 
 # Speed |U| / U_inf mapped from SPEED_RANGE: slow wake navy, freestream teal, fast suction yellow to red.
@@ -53,8 +53,8 @@ SPEED_STOPS = [(0.0, (0.01, 0.02, 0.12)), (0.25, (0.02, 0.18, 0.55)), (0.44, (0.
                (0.62, (0.55, 0.8, 0.15)), (0.8, (1.0, 0.65, 0.0)), (1.0, (0.9, 0.08, 0.02))]
 
 
-def _emission_material(name, attr, lo, hi, strength, instancer=False):
-    """Emission coloured by a named attribute mapped from [lo, hi] onto the speed colour ramp."""
+def _emission_material(name, attr, lo, hi, strength, instancer=False, stops=None):
+    """Emission coloured by a named attribute mapped from [lo, hi] onto a colour ramp (speed stops by default)."""
     mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
@@ -65,7 +65,7 @@ def _emission_material(name, attr, lo, hi, strength, instancer=False):
     m = nt.nodes.new("ShaderNodeMapRange")
     m.inputs["From Min"].default_value, m.inputs["From Max"].default_value = lo, hi
     r = nt.nodes.new("ShaderNodeValToRGB")
-    _ramp(r, SPEED_STOPS)
+    _ramp(r, SPEED_STOPS if stops is None else stops)
     e = nt.nodes.new("ShaderNodeEmission")
     e.inputs["Strength"].default_value = strength
     o = nt.nodes.new("ShaderNodeOutputMaterial")

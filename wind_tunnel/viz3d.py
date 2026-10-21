@@ -7,8 +7,15 @@
               moves by the velocity it samples from the grid (midpoint rule), or by the plain wind in
               preview. Near the Test Object the inward part of the velocity is removed, so particles
               slide along whatever shape is assigned, at once, before any solve.
-  "WT Slice"  a plane that samples the grid at its vertices and colours itself by speed or Cp;
-              move and rotate it anywhere, like a cutting plane in ParaView
+  "WT Slice"  a plane that samples the grid at its vertices and colours itself by speed or Cp
+              (diverging ramp centred on Cp = 0); move and rotate it anywhere, like a cutting plane in
+              ParaView. It shows only vertices whose eight grid corners are fluid ("fluid" grid), so it
+              ends at the grid edge and about one voxel off the body. "Animate slice" sweeps it.
+  "WT Legend" colour strip and ticks by the top edge of the grid, read from WT Slice's own inputs
+  "WT Label"  "Slice y = +0.85 m (+0.43 L) | Cp", from WT Slice's location
+
+OpenVDB grids in flow.vdb: velocity (m/s), speed (|U| / U_inf), cp, fluid (1 at fluid nodes, 0 in the
+solid mask; outside the grid the background is 0).
 """
 from __future__ import annotations
 
@@ -18,9 +25,11 @@ from pathlib import Path
 import bpy
 import numpy as np
 
-from .viz import SPEED_STOPS, _emission_material, _fresh_mesh, _math, _ramp
+from . import anim
+from .viz import SPEED_RANGE, SPEED_STOPS, _emission_material, _fresh_mesh, _math, _ramp
 
 FLOW, RAKE, SMOKE, SLICE = "WT Flow", "WT Rake", "WT Smoke", "WT Slice"
+LEGEND, LABEL = "WT Legend", "WT Label"
 
 
 # ---------------------------------------------------------------- Blender mesh -> STL triangles
@@ -61,6 +70,10 @@ def write_vdb(npz: Path, vdb: Path, rho: float = 1.225):
     cp.copyFromArray((d["p"] / q).astype(np.float32))
     cp.name, cp.transform = "cp", xf
     grids.append(cp)
+    fl = openvdb.FloatGrid()
+    fl.copyFromArray((~d["solid"].astype(bool)).astype(np.float32))
+    fl.name, fl.transform = "fluid", xf
+    grids.append(fl)
     openvdb.write(str(vdb), grids=grids)
     lo = np.array([ox, oy, oz])
     return lo, lo + h * (np.array(U.shape[:3]) - 1), speed_inf
@@ -125,15 +138,104 @@ def build_rake(lo, hi, L):
 
 
 def build_slice(box_lo, box_hi, body_lo, body_hi):
+    """WT Slice through the body centre (normal Y), plus WT Legend and WT Label that read it."""
     cy = (body_lo[1] + body_hi[1]) / 2
     sx, sz = box_hi[0] - box_lo[0], box_hi[2] - box_lo[2]
     centre = ((box_lo[0] + box_hi[0]) / 2, cy, (box_lo[2] + box_hi[2]) / 2)
     ob = _plane(SLICE, sx, sz, "Y", centre, res=(int(min(400, sx / sz * 160)), 160))
+    ob.rotation_euler = (0.0, 0.0, 0.0)
+    vol = bpy.data.volumes.get(FLOW)
+    grid = vol.grids.get("cp") if vol is not None else None
+    h = float(grid.matrix_object[0][0]) if grid is not None else (box_hi[0] - box_lo[0]) / 170
+    for key, v in (("wt_grid_lo", box_lo), ("wt_grid_hi", box_hi), ("wt_body_lo", body_lo),
+                   ("wt_body_hi", body_hi), ("wt_rest", centre)):
+        ob[key] = [float(x) for x in v]
+    ob["wt_voxel"] = h
     tree = _slice_tree()
     mod = ob.modifiers.get("Wind Tunnel") or ob.modifiers.new("Wind Tunnel", "NODES")
     mod.node_group = tree
     _set_input(mod, tree, "Flow", bpy.data.objects[FLOW])
+    _set_input(mod, tree, "Cp Lo", anim.CP_RANGE[0])
+    _set_input(mod, tree, "Cp Hi", anim.CP_RANGE[1])
+    build_legend(ob, box_hi, body_lo, body_hi)
     return ob
+
+
+def _overlay(name, tree, inputs):
+    """An empty mesh object at the world origin whose node tree draws everything in world space."""
+    me = _fresh_mesh(name)
+    ob = bpy.data.objects.get(name) or _link(bpy.data.objects.new(name, me))
+    ob.data = me
+    ob.location, ob.rotation_euler, ob.scale = (0, 0, 0), (0, 0, 0), (1, 1, 1)
+    mod = ob.modifiers.get("Wind Tunnel") or ob.modifiers.new("Wind Tunnel", "NODES")
+    mod.node_group = tree
+    for k, v in inputs.items():
+        _set_input(mod, tree, k, v)
+    return ob
+
+
+def build_legend(slice_ob, box_hi, body_lo, body_hi):
+    """WT Legend (strip 2 L long above the grid's top edge, in the XZ plane through the body centre,
+    facing -Y) and WT Label above it."""
+    c = [(body_lo[i] + body_hi[i]) / 2 for i in range(3)]
+    L = max(body_hi[i] - body_lo[i] for i in range(3))
+    origin = (c[0] - L, c[1], box_hi[2] + 0.2 * L)
+    legend = _overlay(LEGEND, _legend_tree(), {"Slice": slice_ob, "Origin": origin, "Length": 2 * L,
+                                               "Height": 0.08 * L, "Text Size": 0.07 * L})
+    label = _overlay(LABEL, _label_tree(), {"Slice": slice_ob, "Axis": 1, "Centre": c, "L": L,
+                                            "Origin": (origin[0], origin[1], origin[2] + 0.18 * L),
+                                            "Text Size": 0.09 * L})
+    return legend, label
+
+
+# ---------------------------------------------------------------- slice sweep (spec Q1)
+SWEEP_ROTATION = {"X": (0.0, 0.0, math.pi / 2), "Y": (0.0, 0.0, 0.0), "Z": (math.pi / 2, 0.0, 0.0)}
+
+
+def clear_slice_animation(ob=None):
+    """Removes the sweep keyframes and puts WT Slice back at rest (normal Y, through the body)."""
+    ob = ob or bpy.data.objects.get(SLICE)
+    if ob is None:
+        return None
+    ob.animation_data_clear()
+    if "wt_rest" in ob:
+        ob.location = tuple(ob["wt_rest"])
+    ob.rotation_euler = SWEEP_ROTATION["Y"]
+    lab = bpy.data.objects.get(LABEL)
+    if lab is not None and lab.modifiers.get("Wind Tunnel"):
+        set_input(lab.modifiers["Wind Tunnel"], "Axis", 1)
+    return ob
+
+
+def animate_slice(axis="Y", frames=192, scene=None):
+    """One location keyframe per frame on WT Slice: ping-pong over +-1 L about the body centre along
+    `axis`, kept 10 voxels inside the grid (anim.sweep_*). Replaces earlier keyframes; sets the scene
+    range to 1..frames. Returns the keyframes."""
+    scene = scene or bpy.context.scene
+    ob = clear_slice_animation()
+    blo, bhi = ob["wt_body_lo"], ob["wt_body_hi"]
+    centre = [(blo[i] + bhi[i]) / 2 for i in range(3)]
+    L = max(bhi[i] - blo[i] for i in range(3))
+    R = anim.sweep_half_range(axis, centre, L, ob["wt_grid_lo"], ob["wt_grid_hi"], ob["wt_voxel"])
+    i = "XYZ".index(axis)
+    start = list(ob["wt_rest"])
+    start[i] = centre[i]
+    keys = anim.sweep_keyframes(axis, start, R, frames, True)
+    ob.rotation_euler = SWEEP_ROTATION[axis]
+    prefs = bpy.context.preferences.edit
+    old = prefs.keyframe_new_interpolation_type
+    prefs.keyframe_new_interpolation_type = "LINEAR"
+    try:
+        for f, loc in keys:
+            ob.location = loc
+            ob.keyframe_insert("location", frame=f)
+    finally:
+        prefs.keyframe_new_interpolation_type = old
+    lab = bpy.data.objects.get(LABEL)
+    if lab is not None and lab.modifiers.get("Wind Tunnel"):
+        set_input(lab.modifiers["Wind Tunnel"], "Axis", i)
+    scene.frame_start, scene.frame_end = 1, frames
+    return keys
 
 
 # ---------------------------------------------------------------- node helpers
@@ -166,6 +268,7 @@ def _set_input(mod, tree, name, value):
                 getattr(props.inputs, item.identifier).value = value
             else:
                 mod[item.identifier] = value
+            mod.id_data.update_tag()                        # re-evaluate the object now
             return
 
 
@@ -274,9 +377,10 @@ def _bool(tree, op, a, b=None):
 def _smoke_tree():
     """Particles that know the Test Object.
 
-    Every step: velocity = the solved field (Use Field on) or the plain wind (preview); near the
-    Test Object the inward part of that velocity is removed, so particles slide along its surface,
-    and any particle that still ends up inside is put back on the surface. New particles come from
+    Every step: velocity = the solved field (Use Field on) or the plain wind (preview). In preview
+    only, near the Test Object the inward part of the wind is removed, so particles slide along its
+    surface, and any particle that still ends up inside is put back on the surface; with the field
+    on, particles in still air (speed < 0.02 U_inf, the solid) are removed instead. New particles come from
     a plane half a body length upstream, sized from the Test Object's bounding box.
     """
     tree = _new_tree("WT Smoke")
@@ -354,23 +458,19 @@ def _smoke_tree():
     v2 = _sample(tree, vel_grid, mid, "VECTOR")
     v = _vsw(tree, gi.outputs["Use Field"], gi.outputs["Wind"], v2)
 
-    # The Test Object's surface: nearest point and its normal.
+    # Preview only (Use Field off): within 0.05 L of the Test Object's surface (true distance), the
+    # part of the wind towards the nearest surface point is removed, so particles slide along it.
+    # With the field on, particles move by the solved velocity alone (spec Q3).
+    preview = _bool(tree, "NOT", gi.outputs["Use Field"])
     near = tree.nodes.new("GeometryNodeProximity")
     near.target_element = "FACES"
     tree.links.new(body_geo, near.inputs["Geometry"])
     tree.links.new(P(), near.inputs["Source Position"])
-    nrm_s = tree.nodes.new("GeometryNodeSampleNearestSurface")
-    nrm_s.data_type = "FLOAT_VECTOR"
-    tree.links.new(body_geo, nrm_s.inputs["Mesh"])
-    tree.links.new(tree.nodes.new("GeometryNodeInputNormal").outputs[0], nrm_s.inputs["Value"])
-    tree.links.new(P(), nrm_s.inputs["Sample Position"])
-    n = _vmath(tree, "NORMALIZE", nrm_s.outputs["Value"])
-    gap = _vmath(tree, "DOT_PRODUCT", _vmath(tree, "SUBTRACT", P(), near.outputs["Position"]), n)
-    has_body = near.outputs["Is Valid"]
-    band = _cmp(tree, "LESS_THAN", gap, _math(tree, "MULTIPLY", L, 0.05))
-    into = _math(tree, "MINIMUM", _vmath(tree, "DOT_PRODUCT", v, n), 0.0)
-    slide = _vmath(tree, "SUBTRACT", v, _vmath(tree, "SCALE", n, scale=into))
-    v_eff = _vsw(tree, _bool(tree, "AND", has_body, band), v, slide)
+    away = _vmath(tree, "NORMALIZE", _vmath(tree, "SUBTRACT", P(), near.outputs["Position"]))
+    band = _cmp(tree, "LESS_THAN", near.outputs["Distance"], _math(tree, "MULTIPLY", L, 0.05))
+    into = _math(tree, "MINIMUM", _vmath(tree, "DOT_PRODUCT", v, away), 0.0)
+    slide = _vmath(tree, "SUBTRACT", v, _vmath(tree, "SCALE", away, scale=into))
+    v_eff = _vsw(tree, _bool(tree, "AND", _bool(tree, "AND", near.outputs["Is Valid"], band), preview), v, slide)
 
     move = tree.nodes.new("GeometryNodeSetPosition")
     tree.links.new(join.outputs["Geometry"], move.inputs["Geometry"])
@@ -379,7 +479,7 @@ def _smoke_tree():
                       _math(tree, "MAXIMUM", _vmath(tree, "LENGTH", gi.outputs["Wind"]), 1e-6))
     stored = _store(tree, move.outputs["Geometry"], "speed", speed_now)
 
-    # Anything that still ended up inside goes back onto the surface.
+    # Preview only: anything that still ended up inside goes back onto the surface.
     near2 = tree.nodes.new("GeometryNodeProximity")
     near2.target_element = "FACES"
     tree.links.new(body_geo, near2.inputs["Geometry"])
@@ -391,7 +491,8 @@ def _smoke_tree():
     tree.links.new(P(), nrm2.inputs["Sample Position"])
     n2 = _vmath(tree, "NORMALIZE", nrm2.outputs["Value"])
     gap2 = _vmath(tree, "DOT_PRODUCT", _vmath(tree, "SUBTRACT", P(), near2.outputs["Position"]), n2)
-    inside = _bool(tree, "AND", near2.outputs["Is Valid"], _cmp(tree, "LESS_THAN", gap2, margin))
+    inside = _bool(tree, "AND", _bool(tree, "AND", near2.outputs["Is Valid"], _cmp(tree, "LESS_THAN", gap2, margin)),
+                   preview)
     fix = tree.nodes.new("GeometryNodeSetPosition")
     tree.links.new(stored, fix.inputs["Geometry"])
     tree.links.new(inside, fix.inputs["Selection"])
@@ -472,12 +573,54 @@ def set_input(mod, name, value):
     _set_input(mod, mod.node_group, name, value)
 
 
-# ---------------------------------------------------------------- slice
+# ---------------------------------------------------------------- slice, legend, label
+def _ramp_coord(tree, pressure, spd, cp, lo, hi):
+    """0..1 ramp coordinate: speed/U_inf over SPEED_RANGE, or anim.cp_to_ramp (two clamped Map Range
+    nodes summed, so Cp = 0 is always 0.5)."""
+    def mr(v, a, b, c, d):
+        m = tree.nodes.new("ShaderNodeMapRange")
+        m.clamp = True
+        for key, x in (("Value", v), ("From Min", a), ("From Max", b), ("To Min", c), ("To Max", d)):
+            if isinstance(x, (int, float)):
+                m.inputs[key].default_value = x
+            else:
+                tree.links.new(x, m.inputs[key])
+        return m.outputs["Result"]
+    s_coord = mr(spd, SPEED_RANGE[0], SPEED_RANGE[1], 0.0, 1.0)
+    cp_coord = _math(tree, "SUBTRACT", _math(tree, "ADD", mr(cp, lo, 0.0, 0.0, 0.5), mr(cp, 0.0, hi, 0.5, 1.0)), 0.5)
+    sw = tree.nodes.new("GeometryNodeSwitch")
+    sw.input_type = "FLOAT"
+    tree.links.new(pressure, sw.inputs["Switch"])
+    tree.links.new(s_coord, sw.inputs["False"])
+    tree.links.new(cp_coord, sw.inputs["True"])
+    return sw.outputs["Output"]
+
+
+def _materials():
+    """(speed, Cp, text) emission materials, strength exactly 1 so a Standard view shows the stops."""
+    return (_emission_material("WT Slice", "show", 0.0, 1.0, 1.0),
+            _emission_material("WT Slice Cp", "show", 0.0, 1.0, 1.0, stops=anim.CP_STOPS),
+            _emission_material("WT Text", "show", 0.0, 1.0, 1.0, stops=[(0.0, (1.0, 1.0, 1.0))]))
+
+
+def _set_mat(tree, geo, pressure, speed_mat, cp_mat):
+    sw = tree.nodes.new("GeometryNodeSwitch")
+    sw.input_type = "MATERIAL"
+    tree.links.new(pressure, sw.inputs["Switch"])
+    sw.inputs["False"].default_value, sw.inputs["True"].default_value = speed_mat, cp_mat
+    setm = tree.nodes.new("GeometryNodeSetMaterial")
+    tree.links.new(geo, setm.inputs["Geometry"])
+    tree.links.new(sw.outputs["Output"], setm.inputs["Material"])
+    return setm.outputs["Geometry"]
+
+
 def _slice_tree():
     tree = _new_tree("WT Slice")
     _sock(tree, "Geometry", "NodeSocketGeometry")
     _sock(tree, "Flow", "NodeSocketObject")
     _sock(tree, "Pressure", "NodeSocketBool", False)
+    _sock(tree, "Cp Lo", "NodeSocketFloat", anim.CP_RANGE[0], hi=-1e-3)
+    _sock(tree, "Cp Hi", "NodeSocketFloat", anim.CP_RANGE[1], lo=1e-3)
     _sock(tree, "Geometry", "NodeSocketGeometry", out=True)
     gi = tree.nodes.new("NodeGroupInput")
     go = tree.nodes.new("NodeGroupOutput")
@@ -485,37 +628,207 @@ def _slice_tree():
     flow.transform_space = "RELATIVE"
     tree.links.new(gi.outputs["Flow"], flow.inputs["Object"])
     pos = tree.nodes.new("GeometryNodeInputPosition").outputs[0]
-    spd = _sample(tree, _grid(tree, flow.outputs["Geometry"], "speed", "FLOAT"), pos, "FLOAT")
-    cp = _sample(tree, _grid(tree, flow.outputs["Geometry"], "cp", "FLOAT"), pos, "FLOAT")
-    # Both mapped to 0..1 for one colour ramp: speed 0.3..1.9, Cp -2.5..1 (suction dark, stagnation red).
-    m_s = tree.nodes.new("ShaderNodeMapRange")
-    m_s.inputs["From Min"].default_value, m_s.inputs["From Max"].default_value = 0.3, 1.9
-    tree.links.new(spd, m_s.inputs["Value"])
-    m_p = tree.nodes.new("ShaderNodeMapRange")
-    m_p.inputs["From Min"].default_value, m_p.inputs["From Max"].default_value = -2.5, 1.0
-    tree.links.new(cp, m_p.inputs["Value"])
+    sample = lambda name: _sample(tree, _grid(tree, flow.outputs["Geometry"], name, "FLOAT"), pos, "FLOAT")
+    spd, cp, fluid = sample("speed"), sample("cp"), sample("fluid")
+    show = _ramp_coord(tree, gi.outputs["Pressure"], spd, cp, gi.outputs["Cp Lo"], gi.outputs["Cp Hi"])
+    geo = _store(tree, _store(tree, _store(tree, gi.outputs["Geometry"], "show", show), "cp", cp), "speed", spd)
+    # Keep a vertex only where all eight grid corners around it are fluid and inside the grid
+    # (anim.slice_keep): no value blended with the zeroed solid nodes, nothing past the grid edge.
+    delete = tree.nodes.new("GeometryNodeDeleteGeometry")
+    delete.domain = "POINT"
+    tree.links.new(geo, delete.inputs["Geometry"])
+    tree.links.new(_cmp(tree, "LESS_THAN", fluid, anim.KEEP_MIN), delete.inputs["Selection"])
+    # One loose vertex (never rendered) keeps the inputs readable by WT Legend and WT Label even when
+    # the whole plane is outside the grid; they read cp_lo, cp_hi and pressure from this geometry.
+    one = tree.nodes.new("GeometryNodeMeshLine")
+    one.inputs["Count"].default_value = 1
+    join = tree.nodes.new("GeometryNodeJoinGeometry")
+    tree.links.new(one.outputs["Mesh"], join.inputs["Geometry"])
+    tree.links.new(delete.outputs["Geometry"], join.inputs["Geometry"])
     sw = tree.nodes.new("GeometryNodeSwitch")
     sw.input_type = "FLOAT"
     tree.links.new(gi.outputs["Pressure"], sw.inputs["Switch"])
-    tree.links.new(m_s.outputs["Result"], sw.inputs["False"])
-    tree.links.new(m_p.outputs["Result"], sw.inputs["True"])
-    shown = _store(tree, gi.outputs["Geometry"], "show", sw.outputs["Output"])
-    # Hide the faces that fall inside the body (no air movement there).
-    still = _math(tree, "LESS_THAN", spd, 0.01)
-    delete = tree.nodes.new("GeometryNodeDeleteGeometry")
-    delete.domain = "POINT"
-    tree.links.new(shown, delete.inputs["Geometry"])
-    tree.links.new(still, delete.inputs["Selection"])
+    sw.inputs["False"].default_value, sw.inputs["True"].default_value = 0.0, 1.0
+    geo = _store(tree, join.outputs["Geometry"], "cp_lo", gi.outputs["Cp Lo"])
+    geo = _store(tree, _store(tree, geo, "cp_hi", gi.outputs["Cp Hi"]), "pressure", sw.outputs["Output"])
+    speed_mat, cp_mat, _ = _materials()
+    tree.links.new(_set_mat(tree, geo, gi.outputs["Pressure"], speed_mat, cp_mat), go.inputs["Geometry"])
+    _layout(tree)
+    return tree
+
+
+def _slice_inputs(tree, slice_geo):
+    """(pressure bool, Cp lo, Cp hi) as single values, from the attributes WT Slice stores."""
+    def stat(name):
+        st = tree.nodes.new("GeometryNodeAttributeStatistic")
+        st.data_type, st.domain = "FLOAT", "POINT"
+        tree.links.new(slice_geo, st.inputs["Geometry"])
+        tree.links.new(_named(tree, name), st.inputs["Attribute"])
+        return st.outputs["Max"]
+    return _cmp(tree, "GREATER_THAN", stat("pressure"), 0.5), stat("cp_lo"), stat("cp_hi")
+
+
+def _fmt(tree, fmt, **items):
+    """Format String node (fmt syntax, for example {d:+.2f}); items are sockets or constants."""
+    n = tree.nodes.new("FunctionNodeFormatString")
+    n.inputs["Format"].default_value = fmt
+    for name, v in items.items():
+        is_str = isinstance(v, str) or getattr(v, "type", "") == "STRING"
+        n.format_items.new("STRING" if is_str else "FLOAT", name)
+        if isinstance(v, (str, int, float)):
+            n.inputs[name].default_value = v
+        else:
+            tree.links.new(v, n.inputs[name])
+    return n.outputs["String"]
+
+
+def _ssw(tree, cond, if_false, if_true):
+    """String switch; cond is a socket or a bool."""
+    sw = tree.nodes.new("GeometryNodeSwitch")
+    sw.input_type = "STRING"
+    if isinstance(cond, bool):
+        sw.inputs["Switch"].default_value = cond
+    else:
+        tree.links.new(cond, sw.inputs["Switch"])
+    for key, v in (("False", if_false), ("True", if_true)):
+        if isinstance(v, str):
+            sw.inputs[key].default_value = v
+        else:
+            tree.links.new(v, sw.inputs[key])
+    return sw.outputs["Output"]
+
+
+def _tick_strings(tree, pressure, lo, hi):
+    """The five legend tick texts (anim.legend_ticks); lo, hi are sockets or constants."""
+    half = lambda v: 0.5 * v if isinstance(v, (int, float)) else _math(tree, "MULTIPLY", v, 0.5)
+    cp = [_fmt(tree, "<= {v:.1f}", v=lo), _fmt(tree, "{v:+.1f}", v=half(lo)), "0",
+          _fmt(tree, "{v:+.1f}", v=half(hi)), _fmt(tree, ">= {v:+.1f}", v=hi)]
+    return [_ssw(tree, pressure, sp, c) for (_, sp), c in zip(anim.legend_ticks(False), cp)]
+
+
+def _label_string(tree, axis_letter, d, r, pressure):
+    """anim.label_text built in nodes: d = offset from the body centre (m), r = d / L."""
+    return _fmt(tree, "Slice {a} = {d:+.2f} m ({r:+.2f} L) | {w}", a=axis_letter, d=d, r=r,
+                w=_ssw(tree, pressure, "speed/U_inf", "Cp"))
+
+
+def _text(tree, string, size, at, align="LEFT"):
+    """Text as a filled mesh in the XZ plane (reads from -Y), baseline starting at `at`."""
+    sc = tree.nodes.new("GeometryNodeStringToCurves")
+    for key, v in (("String", string), ("Size", size)):
+        if isinstance(v, (str, int, float)):
+            sc.inputs[key].default_value = v
+        else:
+            tree.links.new(v, sc.inputs[key])
+    sc.inputs["Align X"].default_value = {"LEFT": "Left", "CENTER": "Center"}[align]
+    real = tree.nodes.new("GeometryNodeRealizeInstances")
+    tree.links.new(sc.outputs["Curve Instances"], real.inputs["Geometry"])
+    fill = tree.nodes.new("GeometryNodeFillCurve")
+    tree.links.new(real.outputs["Geometry"], fill.inputs["Curve"])
+    xf = tree.nodes.new("GeometryNodeTransform")
+    tree.links.new(fill.outputs["Mesh"], xf.inputs["Geometry"])
+    xf.inputs["Rotation"].default_value = (math.pi / 2, 0.0, 0.0)
+    tree.links.new(at, xf.inputs["Translation"])
+    return xf.outputs["Geometry"]
+
+
+def _overlay_tree(name, extra):
+    tree = _new_tree(name)
+    _sock(tree, "Geometry", "NodeSocketGeometry")
+    _sock(tree, "Slice", "NodeSocketObject")
+    for args in extra:
+        _sock(tree, *args)
+    _sock(tree, "Geometry", "NodeSocketGeometry", out=True)
+    gi = tree.nodes.new("NodeGroupInput")
+    go = tree.nodes.new("NodeGroupOutput")
+    info = tree.nodes.new("GeometryNodeObjectInfo")
+    info.transform_space = "ORIGINAL"
+    tree.links.new(gi.outputs["Slice"], info.inputs["Object"])
+    return tree, gi, go, info
+
+
+def _legend_tree():
+    tree, gi, go, info = _overlay_tree("WT Legend", [
+        ("Origin", "NodeSocketVector", (0.0, 0.0, 0.0)), ("Length", "NodeSocketFloat", 4.0),
+        ("Height", "NodeSocketFloat", 0.16), ("Text Size", "NodeSocketFloat", 0.14)])
+    pressure, lo, hi = _slice_inputs(tree, info.outputs["Geometry"])
+    speed_mat, cp_mat, text_mat = _materials()
+    # Strip: 257 x 2 vertices, show = 0..1 along it (the ramp coordinate itself), so the stops at
+    # k / 8 fall on vertices.
+    grid = tree.nodes.new("GeometryNodeMeshGrid")
+    grid.inputs["Vertices X"].default_value, grid.inputs["Vertices Y"].default_value = 257, 2
+    tree.links.new(gi.outputs["Length"], grid.inputs["Size X"])
+    tree.links.new(gi.outputs["Height"], grid.inputs["Size Y"])
+    sep = tree.nodes.new("ShaderNodeSeparateXYZ")
+    tree.links.new(tree.nodes.new("GeometryNodeInputPosition").outputs[0], sep.inputs[0])
+    u = _math(tree, "ADD", _math(tree, "DIVIDE", sep.outputs["X"], gi.outputs["Length"]), 0.5)
+    strip = _store(tree, grid.outputs["Mesh"], "show", u)
+    xf = tree.nodes.new("GeometryNodeTransform")
+    tree.links.new(strip, xf.inputs["Geometry"])
+    xf.inputs["Rotation"].default_value = (math.pi / 2, 0.0, 0.0)
+    off = tree.nodes.new("ShaderNodeCombineXYZ")
+    tree.links.new(_math(tree, "MULTIPLY", gi.outputs["Length"], 0.5), off.inputs["X"])
+    tree.links.new(_math(tree, "MULTIPLY", gi.outputs["Height"], 0.5), off.inputs["Z"])
+    tree.links.new(_vmath(tree, "ADD", gi.outputs["Origin"], off.outputs[0]), xf.inputs["Translation"])
+    join = tree.nodes.new("GeometryNodeJoinGeometry")
+    tree.links.new(_set_mat(tree, xf.outputs["Geometry"], pressure, speed_mat, cp_mat), join.inputs["Geometry"])
+    # Ticks below the strip at ramp coordinates 0, 0.25, ..., 1 (anim.legend_ticks).
+    texts = tree.nodes.new("GeometryNodeJoinGeometry")
+    for k, s in enumerate(_tick_strings(tree, pressure, lo, hi)):
+        at = tree.nodes.new("ShaderNodeCombineXYZ")
+        tree.links.new(_math(tree, "MULTIPLY", gi.outputs["Length"], k / 4), at.inputs["X"])
+        tree.links.new(_math(tree, "MULTIPLY", gi.outputs["Text Size"], -1.3), at.inputs["Z"])
+        pos = _vmath(tree, "ADD", gi.outputs["Origin"], at.outputs[0])
+        tree.links.new(_text(tree, s, gi.outputs["Text Size"], pos, "CENTER"), texts.inputs["Geometry"])
     setm = tree.nodes.new("GeometryNodeSetMaterial")
-    setm.inputs["Material"].default_value = _emission_material("WT Slice", "show", 0.0, 1.0, 1.0)
-    tree.links.new(delete.outputs["Geometry"], setm.inputs["Geometry"])
+    setm.inputs["Material"].default_value = text_mat
+    tree.links.new(texts.outputs["Geometry"], setm.inputs["Geometry"])
+    tree.links.new(setm.outputs["Geometry"], join.inputs["Geometry"])
+    tree.links.new(join.outputs["Geometry"], go.inputs["Geometry"])
+    _layout(tree)
+    return tree
+
+
+def _pick(tree, index, values, dtype="FLOAT"):
+    """Index Switch over three values (sockets or constants)."""
+    sw = tree.nodes.new("GeometryNodeIndexSwitch")
+    sw.data_type = dtype
+    tree.links.new(index, sw.inputs["Index"])
+    while len([s for s in sw.inputs if s.name.isdigit()]) < len(values):
+        sw.index_switch_items.new()
+    for k, v in enumerate(values):
+        if isinstance(v, (str, int, float)):
+            sw.inputs[str(k)].default_value = v
+        else:
+            tree.links.new(v, sw.inputs[str(k)])
+    return sw.outputs["Output"]
+
+
+def _label_tree():
+    tree, gi, go, info = _overlay_tree("WT Label", [
+        ("Axis", "NodeSocketInt", 1, False, 0, 2), ("Centre", "NodeSocketVector", (0.0, 0.0, 0.0)),
+        ("L", "NodeSocketFloat", 1.0), ("Origin", "NodeSocketVector", (0.0, 0.0, 0.0)),
+        ("Text Size", "NodeSocketFloat", 0.18)])
+    pressure, _, _ = _slice_inputs(tree, info.outputs["Geometry"])
+
+    def comp(vec):
+        sep = tree.nodes.new("ShaderNodeSeparateXYZ")
+        tree.links.new(vec, sep.inputs[0])
+        return _pick(tree, gi.outputs["Axis"], [sep.outputs[c] for c in "XYZ"])
+    d = _math(tree, "SUBTRACT", comp(info.outputs["Location"]), comp(gi.outputs["Centre"]))
+    r = _math(tree, "DIVIDE", d, gi.outputs["L"])
+    letter = _pick(tree, gi.outputs["Axis"], ["x", "y", "z"], "STRING")
+    text = _text(tree, _label_string(tree, letter, d, r, pressure), gi.outputs["Text Size"], gi.outputs["Origin"])
+    setm = tree.nodes.new("GeometryNodeSetMaterial")
+    setm.inputs["Material"].default_value = _materials()[2]
+    tree.links.new(text, setm.inputs["Geometry"])
     tree.links.new(setm.outputs["Geometry"], go.inputs["Geometry"])
     _layout(tree)
     return tree
 
 
 def remove_all():
-    for name in (SMOKE, SLICE, RAKE, FLOW):
+    for name in (SMOKE, LEGEND, LABEL, SLICE, RAKE, FLOW):
         ob = bpy.data.objects.get(name)
         if ob:
             bpy.data.objects.remove(ob)
