@@ -1,0 +1,64 @@
+{
+  "slice": "ANIMATION A+B, Stage 4 tracer",
+  "date": "2026-10-22",
+  "case": "~/wind_tunnel/3d_AnimCube (light copy of _anim/Cube: field.npz, forces.json, status only)",
+  "solver": "OpenFOAM v2512 simpleFoam, k-omega SST, steady, gated at t = 1831",
+  "mesh_cells": 359618,
+  "field_npz_sha1": "5868c18eb95212e0880898e04d211628a2771b29",
+  "forces_json_sha1": "77061b3d1e998e5ee6f59731e38d658e029df80c",
+  "grid": {"x": [-2.5, 6.0], "y": [-2.5, 2.5], "z": [-2.5, 2.5], "h_m": 0.05, "nodes": [171, 101, 101]},
+  "body": "cube -1..1 m on every axis, L = 2 m, Blender object AnimCube in scene WT_ANIM",
+  "blender": "5.2.0 LTS, add-on 0.4.4 source (Stage 3 code), loaded through wind_tunnel.load3d (open issue f)",
+  "scene_colour": {"view_transform": "Standard", "look": "None", "exposure": 0.0, "gamma": 1.0, "bloom": "none (EEVEE in 5.2 has no bloom setting)"},
+  "sweep": {"axis": "Y", "frames": 192, "fps": 24, "slice_y_at_frames": {"1": -2.0, "49": 0.0, "97": 2.0, "145": 0.0, "192": -1.9583}},
+  "slice_probes": {
+    "method": "WT Slice evaluated vertex nearest the target, its cp attribute vs trilinear p / q of field.npz at the vertex world position (q = 0.5 * 1.225 * 20^2 = 245 Pa)",
+    "tolerance": 1e-4,
+    "probes": [
+      {"frame": 49, "name": "front stagnation", "point_m": [-1.09375, 0.0, 0.0], "cp_slice": 1.0193469524, "cp_field": 1.0193469690, "abs_err": 1.65e-8},
+      {"frame": 61, "name": "above top face", "point_m": [0.0, 0.5, 1.09375], "cp_slice": -0.6317526102, "cp_field": -0.6317526292, "abs_err": 1.90e-8},
+      {"frame": 85, "name": "wake", "point_m": [2.5, 1.5, 0.0], "cp_slice": -0.4471924305, "cp_field": -0.4471924451, "abs_err": 1.46e-8}
+    ],
+    "pass": true,
+    "note": "errors are float32 rounding of the VDB grid; Cp 1.019 at the stagnation probe is open issue c (inlet non-uniformity), not a slice error"
+  },
+  "particles_inside": {
+    "method": "live WT_ANIM, solved mode (Use Field on, no slide, no push back, still rule kept), frames 1..192 played in order; positions from the instance_transform of the evaluated instances",
+    "particle_frames": 2477893,
+    "particles_alive_max": 19571,
+    "inside_body_box_abs_lt_1m": 0,
+    "target": 0,
+    "pass": true,
+    "min_gap_to_body_m": 0.00073,
+    "solid_mask_nearest_node_count_not_gated": {"particle_frames": 11518, "frames_with_hits": 151, "max_per_frame": 110, "max_gap_outside_body_m": 0.025, "note": "the closed mask (issue e fix) marks the surface nodes solid, so nearest node flags particles up to half a voxel (0.025 m) outside the wall; none of them is inside the body"}
+  },
+  "smoke_vs_rk4_drift": {
+    "method": "tools/audit/anim_q3_smoke.py mode off, 100 frames, headless factory-startup Blender 5.2, then tools/audit/anim_q3_drift.py (RK4 step dt/24, at most 0.068 voxel at U max), equal arc length over 1 L, 3000 release points; field.npz with the fixed mask",
+    "twin_check_max_err_voxels": 2.4e-6,
+    "near_body": {"paths": 2206, "max_drift_voxels": 0.0558, "mean_of_path_max_voxels": 0.0083, "mean_drift_voxels": 0.0024},
+    "freestream": {"paths": 794, "max_drift_voxels": 0.0077, "mean_of_path_max_voxels": 0.0029, "mean_drift_voxels": 0.0011},
+    "paths_shorter_than_1L": 120,
+    "rk4_paths_entering_body": 0,
+    "headless_entries_still_rule_off": {"released": 15000, "entered_body_box": 0, "entered_solid_mask_nearest": 320},
+    "previous_mask_for_comparison": "Q3 (old mask): near body max 0.062 voxel, freestream 0.008 voxel, 1 box entrant (1.1 mm deep), validation/anim_ab_q3_measure.json"
+  },
+  "legend_pixels": {
+    "method": "EEVEE still, ortho camera facing +Y, 2200 x 200 px (2 mm per px), filter size 0, PNG 8 bit, Standard view; pixel centre at each stop t = k/8, end stops at the first and last pixel inside the strip (t = 0.00025 and 0.99975)",
+    "tolerance_255": 2,
+    "stops": [
+      {"t": 0.0, "got": [59, 76, 192], "exp": [59, 76, 192]},
+      {"t": 0.125, "got": [98, 130, 234], "exp": [98, 130, 234]},
+      {"t": 0.25, "got": [141, 176, 254], "exp": [141, 176, 254]},
+      {"t": 0.375, "got": [185, 208, 249], "exp": [184, 208, 249]},
+      {"t": 0.5, "got": [221, 221, 221], "exp": [221, 221, 221]},
+      {"t": 0.625, "got": [245, 196, 173], "exp": [245, 196, 173]},
+      {"t": 0.75, "got": [244, 154, 123], "exp": [244, 154, 123]},
+      {"t": 0.875, "got": [221, 96, 76], "exp": [222, 97, 76]},
+      {"t": 1.0, "got": [181, 5, 39], "exp": [180, 4, 38]}
+    ],
+    "worst_diff_255": 1,
+    "pass": true,
+    "reference": "endpoints Moreland 2009, Diverging Color Maps for Scientific Visualization; intermediates our Msh implementation (anim.CP_STOPS_SRGB)"
+  },
+  "render": {"file": "renders/anim_ab_cube.mp4", "engine": "EEVEE", "size": [1280, 720], "frames": 192, "fps": 24, "codec": "H264 in MPEG4"}
+}

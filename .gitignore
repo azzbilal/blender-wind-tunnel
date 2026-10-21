@@ -9,3 +9,4 @@ processor*/
 *.vdb
 *.npz
 log.*
+renders/
