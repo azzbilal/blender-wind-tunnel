@@ -1,0 +1,121 @@
+{
+ "date": "2026-10-22",
+ "case": "~/wind_tunnel/_anim/Cube field.npz t = 1831 (sha1 ab5348ab5db01a7d31428bd72ed9ba4c9b3d46a1)",
+ "mesh_cells": 359618,
+ "iterations": 1831,
+ "scripts": [
+  "tools/audit/anim_q3_smoke.py (headless Blender 5.2, factory startup, scene WT_ANIM)",
+  "tools/audit/anim_q3_drift.py"
+ ],
+ "notes": [
+  "still-air deletion disabled in both recorded runs so solid entries stay countable",
+  "solid mask (export_field) spans x -1.00..1.00 but y, z -0.95..1.00 at node level (64000 nodes)",
+  "slide_off with the shipped still rule (speed < 0.02) re-applied in Python: 46 of 15000 deleted by frame 100, all within 0.0176 m of the surface (median 0.0002 m); the one box entrant (pid 1100012, depth 0.0011 m at frame 80) drops below 0.02 at frame 75 and would be deleted first",
+  "slide_on drift is caused by the slide band test: gap = (P - nearest)\u00b7n with n of one face adjacent to an edge, so in a 0.1 m slab around each face plane, beyond the edges, the velocity component along that face normal is removed and the push back can move a particle onto the edge (up to 0.42 m seen)",
+  "the RK4 reference streamline from the release point of pid 1100012 also enters the cube (max depth 0.00253 m): the resampled field carries it in, not the midpoint integrator (audit section 6, IDW near-wall divergence)",
+  "drift statistics include the 60 slide-off (182 slide-on) paths shorter than 1 L at their partial length"
+ ],
+ "settings": {
+  "mode": "off",
+  "fps": 24,
+  "speed_inf": 20.0,
+  "time_scale": 0.07999999821186066,
+  "rate": 19.132652282714844,
+  "lifetime": 140.0,
+  "sample_grid_interpolation": [
+   "Trilinear"
+  ],
+  "band": -1000000000.0,
+  "margin": -1000000000.0,
+  "still": -1.0,
+  "grid_lo": [
+   -2.5,
+   -2.5,
+   -2.5
+  ],
+  "grid_hi": [
+   6.0,
+   2.5,
+   2.5
+  ],
+  "blender": "5.2.0 LTS"
+ },
+ "dt_s": 0.003333333258827527,
+ "voxel_m": 0.05,
+ "step_freestream_voxels": 1.3333333035310106,
+ "U_max_field": 24.451477908491043,
+ "twin_check": {
+  "particles": 6000,
+  "max_err_m": 1.201999413357607e-07,
+  "max_err_voxels": 2.4039988267152142e-06
+ },
+ "entries": {
+  "slide_off": {
+   "frames": 100,
+   "released": 15000,
+   "entered_solid_mask": 276,
+   "entered_cube_box": 1,
+   "fraction_mask": 0.0184,
+   "fraction_box": 6.666666666666667e-05
+  },
+  "slide_on": {
+   "frames": 100,
+   "released": 15000,
+   "entered_solid_mask": 747,
+   "entered_cube_box": 0,
+   "fraction_mask": 0.0498,
+   "fraction_box": 0.0
+  }
+ },
+ "first_frames_with_box_entry": {
+  "slide_off": [
+   80,
+   81,
+   82
+  ],
+  "slide_on": []
+ },
+ "drift": {
+  "near_body": {
+   "slide_off": {
+    "paths": 2206,
+    "max_drift_voxels": 0.06213074668678338,
+    "mean_of_path_max_voxels": 0.008647686042477521,
+    "mean_drift_voxels": 0.0024831967111071966,
+    "paths_smoke_in_box": 1
+   },
+   "slide_on": {
+    "paths": 2206,
+    "max_drift_voxels": 23.548250701617896,
+    "mean_of_path_max_voxels": 7.576131638657188,
+    "mean_drift_voxels": 2.7136555375392377,
+    "paths_smoke_in_box": 0
+   }
+  },
+  "freestream": {
+   "slide_off": {
+    "paths": 794,
+    "max_drift_voxels": 0.007745206532970329,
+    "mean_of_path_max_voxels": 0.0029197830572771496,
+    "mean_drift_voxels": 0.0011237203065101304,
+    "paths_smoke_in_box": 0
+   },
+   "slide_on": {
+    "paths": 794,
+    "max_drift_voxels": 24.670306826599823,
+    "mean_of_path_max_voxels": 7.158120116082404,
+    "mean_drift_voxels": 3.663944564595324,
+    "paths_smoke_in_box": 0
+   }
+  },
+  "paths_shorter_than_1L": {
+   "slide_off": 60,
+   "slide_on": 182
+  },
+  "rk4_paths_entering_box": 1,
+  "rk4_step": {
+   "dt_s": 0.00013888888578448029,
+   "voxels_at_U_max": 0.0679207704498831
+  }
+ }
+}
