@@ -24,7 +24,7 @@ locked" entry that this one supersedes, is kept verbatim in `docs/archive/sessio
   `forces_1831e_verdict2000.json`); the gated record was put back, as in Stage 1. Backups in the case:
   `field_1831_pre_e.npz`, `forces_1831_pre_e.json`, `export_field_pre_e.py`.
   The Q3 figures (46 of 15000 deletions, drift) predate this mask; Stage 4 re-records them.
-- Stage 3 pure (commit after 6a8295f): `wind_tunnel/anim.py` with `cp_to_ramp`, `CP_STOPS`
+- Stage 3 pure (commit 1107faa): `wind_tunnel/anim.py` with `cp_to_ramp`, `CP_STOPS`
   (linear) and `CP_STOPS_SRGB`, `sweep_half_range`, `sweep_keyframes`, `slice_keep`, `label_text`
   (float32 like the nodes, so 0.85 / 2 prints +0.43), `legend_ticks`; tests `AnimPure`.
 - Stage 3 Blender (commit 1e49285):
