@@ -6,7 +6,7 @@ Sidebar (N) > Wind Tunnel. The case files, the mesh and the force integration ar
 bl_info = {
     "name": "Wind Tunnel (OpenFOAM)",
     "author": "Bilal Azzouzi",
-    "version": (0, 4, 3),
+    "version": (0, 4, 4),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Wind Tunnel",
     "description": "Airfoil polars with OpenFOAM (simpleFoam, k-omega SST) running in WSL",
@@ -668,9 +668,7 @@ class WT_OT_stop3d(bpy.types.Operator):
         p = context.scene.wind_tunnel
         if RUN3D:
             root_linux = f"{p.home}/wind_tunnel/3d_{_safe(p.body3d)}"
-            cmd = (f'pkill -f "{root_linux}/Allrun"; for n in snappyHexMesh simpleFoam; do '
-                   f'for q in $(pgrep -x $n); do case "$(readlink /proc/$q/cwd)" in "{root_linux}"*) kill $q;; esac; done; done; '
-                   f'echo stopped > "{root_linux}/status"')
+            cmd = wsl.stop3d_command(root_linux)
             try:
                 wsl.run(["wsl", "-d", p.distro, "-e", "sh", "-c", cmd], timeout=30)
             except Exception as e:

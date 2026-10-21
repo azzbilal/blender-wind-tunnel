@@ -270,17 +270,28 @@ def forces_converged(f: dict) -> bool:
     return f.get("converged") is True
 
 
+# Characters a sidebar label shows at Blender's default sidebar width before it cuts the line (Stage 6 QA).
+PANEL_CHARS = 38
+
+
+def _wrap(line: str):
+    import textwrap
+    return textwrap.wrap(line, PANEL_CHARS, subsequent_indent="  ", break_long_words=False) or [""]
+
+
 def verdict_lines(f: dict):
     """Panel lines for a finished 3D run (grill Q4): window means (min to max) only when converged,
-    otherwise the reasons and no coefficients or forces."""
+    otherwise the reasons and no coefficients or forces. Every line fits PANEL_CHARS."""
     if not forces_converged(f):
         reasons = f.get("reasons") if "converged" in f else None
-        return ["Not converged:"] + (reasons or ["no convergence record (solved before 0.4.3): Solve 3D again"])
+        reasons = reasons or ["no convergence record (before 0.4.3):", "Solve 3D again"]
+        return ["Not converged:"] + [w for r in reasons for w in _wrap(r)]
     r = lambda k: f"{k} {f[k + '_mean']:.3f} ({f[k + '_min']:.3f} to {f[k + '_max']:.3f})"
-    return [f"Converged at iteration {f['iterations']}: p residual {f['p_initial']:.1e}, "
-            f"Cd band {100 * f['Cd_band']:.2f} %",
-            f"{r('Cd')}   {r('Cl')}   {r('Cs')}",
-            f"Drag {f['drag_N_mean']:.2f} N   Lift {f['lift_N_mean']:.2f} N   Side {f['side_N_mean']:.2f} N"]
+    lines = [f"Converged at iteration {f['iterations']}",
+             f"p residual {f['p_initial']:.1e}, Cd band {100 * f['Cd_band']:.2f} %",
+             r("Cd"), r("Cl"), r("Cs"),
+             f"Drag {f['drag_N_mean']:.2f} N", f"Lift {f['lift_N_mean']:.2f} N", f"Side {f['side_N_mean']:.2f} N"]
+    return [w for ln in lines for w in _wrap(ln)]
 
 
 # NASA Turbulence Modeling Resource, NACA 0012 at Re 6e6, SST model (CFL3D, finest grid).

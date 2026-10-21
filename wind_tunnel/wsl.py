@@ -104,3 +104,13 @@ def stop(distro: str, root_linux: str):
     cmd = (f'for p in $(pgrep -x simpleFoam); do case "$(readlink /proc/$p/cwd)" in "{root_linux}"/*) kill $p;; esac; done; '
            f'echo stopped > "{root_linux}/status"')
     return run(["wsl", "-d", distro, "-e", "sh", "-c", cmd], timeout=30)
+
+
+def stop3d_command(root_linux: str) -> str:
+    """Shell text that stops one 3D run: its Allrun, then every snappyHexMesh or simpleFoam working
+    inside `root_linux`, then marks the run stopped. pkill -f matches a regex against whole command
+    lines, and this text is itself the command line of the `sh -c` that runs it, so the last letter
+    is bracketed: `Allru[n]` matches "Allrun" but not its own spelling."""
+    return (f'pkill -f "{root_linux}/Allru[n]"; for n in snappyHexMesh simpleFoam; do '
+            f'for q in $(pgrep -x $n); do case "$(readlink /proc/$q/cwd)" in "{root_linux}"*) kill $q;; esac; done; done; '
+            f'echo stopped > "{root_linux}/status"')

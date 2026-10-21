@@ -586,10 +586,22 @@ class Verdict3D(unittest.TestCase):
 
     def test_converged_lines(self):
         lines = results.verdict_lines(self.CONVERGED)
-        self.assertEqual(lines[0], "Converged at iteration 1437: p residual 9.9e-04, Cd band 0.31 %")
-        self.assertIn("Cd 1.151 (1.149 to 1.153)", lines[1])
-        self.assertTrue(any("Drag 1128.30 N" in ln for ln in lines))
+        self.assertEqual(lines[:2], ["Converged at iteration 1437", "p residual 9.9e-04, Cd band 0.31 %"])
+        self.assertEqual(lines[2:5], ["Cd 1.151 (1.149 to 1.153)", "Cl 0.001 (-0.030 to 0.030)",
+                                      "Cs -0.002 (-0.040 to 0.040)"])
+        self.assertEqual(lines[5:], ["Drag 1128.30 N", "Lift 1.20 N", "Side -2.10 N"])
         self.assertFalse(any("1.30" in ln for ln in lines))               # never the snapshot Cd
+
+    def test_lines_fit_the_default_sidebar(self):
+        """Stage 6 QA: the default-width sidebar cut lines longer than about 38 characters."""
+        long_reason = "p residual 1.6e-03 >= 0.001 (trend -0.09 orders per 100 iterations)"
+        f = dict(self.CONVERGED, converged=False, reasons=["stopped at the cap of 3000 iterations", long_reason])
+        for rec in (self.CONVERGED, f, {"Cd": 1.26}):
+            for ln in results.verdict_lines(rec):
+                self.assertLessEqual(len(ln), results.PANEL_CHARS, ln)
+        wrapped = results.verdict_lines(f)[2:]
+        self.assertEqual(" ".join(w.strip() for w in wrapped), long_reason)   # wrapped, nothing lost
+        self.assertTrue(all(w.startswith("  ") for w in wrapped[1:]))         # continuation indented
 
     def test_not_converged_lines_have_no_numbers_of_forces(self):
         f = dict(self.CONVERGED, converged=False,
@@ -603,6 +615,26 @@ class Verdict3D(unittest.TestCase):
         lines = results.verdict_lines({"Cd": 1.26, "drag_N": 1200.0})
         self.assertEqual(lines[0], "Not converged:")
         self.assertIn("no convergence record", lines[1])
+
+
+class Stop3D(unittest.TestCase):
+    """Stage 6 QA: `pkill -f "<case>/Allrun"` matched the `sh -c` that ran it, so the shell killed
+    itself before writing `stopped`. pkill -f matches an extended regex against full command lines."""
+
+    ROOT = "/home/bilal/wind_tunnel/3d_QASolve"
+
+    def test_pkill_pattern_spares_its_own_shell(self):
+        import re, shlex
+        cmd = wsl.stop3d_command(self.ROOT)
+        lex = shlex.shlex(cmd, posix=True, punctuation_chars=True)
+        lex.whitespace_split = True
+        words = list(lex)
+        pattern = words[words.index("pkill") + 2]                    # pkill -f <pattern>
+        self.assertIsNotNone(re.search(pattern, f"bash {self.ROOT}/Allrun"))
+        self.assertIsNone(re.search(pattern, f"sh -c {cmd}"))
+
+    def test_writes_stopped(self):
+        self.assertTrue(wsl.stop3d_command(self.ROOT).endswith(f'echo stopped > "{self.ROOT}/status"'))
 
     def test_progress_reads_first_p_solve_of_last_iteration(self):
         log = ("Time = 401\n\nsmoothSolver:  Solving for Ux, Initial residual = 0.1, Final residual = 0.01\n"
