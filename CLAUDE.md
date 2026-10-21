@@ -106,3 +106,25 @@ are in `~/wind_tunnel/_audit` (about 3 GB, safe to delete once no longer needed)
   check. Tell Bilal to restart Blender or toggle the add-on to load the new code.
 - Bump `version` in both `wind_tunnel/blender_manifest.toml` and `bl_info` in `__init__.py`.
 - Commit in small steps with a message that says what physical quantity changed and by how much.
+
+## Session workflow
+
+Every slice (a FIX_PLAN step or a feature) runs the same way. The prompt for each slice is written
+in this structure and saved under `docs/prompts/` (example: `docs/prompts/anim_ab.md`).
+
+1. **Fresh session, bounded context.** Load only the files the prompt names and take its
+   "facts already established" as given; do not re-derive them.
+2. **Stage 0 gate:** the previous slice's review in `docs/reviews/` has no open FAIL.
+3. **Grill (HIL)** before any code: one question at a time, recommendation first, wait for Bilal's
+   answer. Lock the answers in a short spec under `docs/reference/`.
+4. **TDD:** a failing test first (red), then the code that makes it pass (green), pure functions
+   before Blender code.
+5. **Tracer on copies only:** live runs use copies of solved cases (for example `~/wind_tunnel/_anim`)
+   and a new Blender scene, never Bilal's own scenes or the original cases.
+6. **HIL visual QA** wherever appearance matters: render, stop, Bilal judges, small rounds.
+7. **Close:** tests green, `py tools/deploy.py`, headless smoke check, version bump in both places,
+   commit.
+8. **Handoff:** append to `SESSION_LOG.md` what was done, decisions, numbers, open issues, a
+   REVIEWER PROMPT and a NEXT PROMPT, both written in this same structure.
+9. **Review** runs in its own fresh session and saves its report to `docs/reviews/`.
+10. **Stop at about 100k tokens**, write `SESSION_LOG.md` and tell Bilal; never compact.
