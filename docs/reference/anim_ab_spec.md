@@ -24,6 +24,43 @@ Data: `~/wind_tunnel/_anim/Cube`, steady solution at t = 1831 (gated, window-mea
   through Object Info and the Pressure toggle, so it updates in viewport and render with no Python
   handler. Text: `Slice y = +0.85 m (+0.43 L) | Cp` or `| speed/U_inf` in speed mode.
 
-## Q2 Colour (diverging Cp ramp, stops, range, legend): OPEN
+## Q2 Colour (diverging Cp ramp, stops, range, legend): LOCKED 2026-10-22
+
+- Range lo = -1.0, hi = +1.0, ends clamped; lo and hi are modifier inputs (other bodies may widen).
+  Red end: Cp = 1 is the incompressible stagnation limit (Bernoulli). Blue end: Cp = -1 is
+  |U| = sqrt(2) U_inf; the cube's deepest voxel suction (-0.70) lands near 0.15 on the ramp.
+- The field's Cp peak 1.025 clamps to full red. Cause already explained in
+  `docs/reviews/step1_review.md` (3.4 table): the inlet fixes U uniform while p is raised near the
+  axis, so the stagnation streamline enters about 1.031 q above the inlet mean and loses about
+  0.008 q on the way. That is open issue (c), inlet non-uniformity, for FIX_PLAN step 4; not a new item.
+- Mapping is two-sided, `cp_to_ramp(cp, lo, hi)`: cp in [lo, 0] -> [0, 0.5], cp in [0, hi] -> [0.5, 1],
+  clamped outside. Cp = 0 always hits the neutral stop, also for an asymmetric range.
+- Stops: Moreland cool-warm, 9 stops. Endpoints cited from Moreland 2009, "Diverging Color Maps for
+  Scientific Visualization"; the intermediates are computed with our own implementation of his Msh
+  interpolation (not quoted). ColorRamp elements receive the linear column.
+
+| t | Cp at lo/hi = -1/+1 | sRGB (0-255) | linear RGB |
+|---|---|---|---|
+| 0.000 | -1.00 | 59, 76, 192 | 0.0437, 0.0723, 0.5271 |
+| 0.125 | -0.75 | 98, 130, 234 | 0.1219, 0.2224, 0.8213 |
+| 0.250 | -0.50 | 141, 176, 254 | 0.2669, 0.4320, 0.9890 |
+| 0.375 | -0.25 | 184, 208, 249 | 0.4805, 0.6276, 0.9474 |
+| 0.500 | 0 | 221, 221, 221 | 0.7207, 0.7207, 0.7205 |
+| 0.625 | +0.25 | 245, 196, 173 | 0.9096, 0.5541, 0.4174 |
+| 0.750 | +0.50 | 244, 154, 123 | 0.9080, 0.3222, 0.1975 |
+| 0.875 | +0.75 | 222, 97, 76 | 0.7285, 0.1184, 0.0731 |
+| 1.000 | +1.00 | 180, 4, 38 | 0.4564, 0.0012, 0.0194 |
+
+- Speed keeps SPEED_STOPS over 0.3 to 1.9 U_inf.
+- Slice material: the Cp branch gets its own ColorRamp (second material via Switch + Set Material,
+  or two ramps mixed in one material; decided in Stage 3). Closes open item a.
+- Legend "WT Legend": Geometry Nodes strip at a fixed place by the grid edge (not parented to the
+  slice), its own coordinate through the active ramp, String to Curves ticks: Cp -1.0, -0.5, 0,
+  +0.5, +1.0 with end labels "<= -1.0" and ">= +1.0"; speed 0.3, 0.7, 1.1, 1.5, 1.9. It reads the
+  same lo, hi and Pressure inputs as WT Slice, so the two cannot disagree.
+- Colour fidelity is a test, not only a setting: WT_ANIM uses view transform Standard, look None,
+  exposure 0, gamma 1; slice and legend emission strength exactly 1.0; no bloom. Stage 4 renders the
+  legend strip and samples the pixel colour at the 9 stop positions; each must equal the sRGB column
+  within plus/minus 2/255. Recorded in `validation/anim_ab_v2512.json`.
 
 ## Q3 Smoke honesty (surface slide in solved mode, solid-mask deletion, RK4 drift): OPEN
