@@ -31,7 +31,7 @@
       "pct": 0.7197461933714979,
       "Cd_400_this_run_forces_FO": 0.5759
     },
-    "note": "The step 1 value (1.2624, 359,240 cells) came from the same cube [-1,1]^3 with a different STL triangulation (other face diagonals); this run's mesh has 359,618 cells. p residuals agree within about 2 % to iteration 200, then diverge (0.028 vs 0.047 at 400) and this run's forces-FO Cd at 400 is 0.809: the cube's 400-iteration Cd is path dependent by about 35 %. Whether the gated value is also mesh-path independent is not tested (one gated run per body). Cone at 400: 0.5759 here vs 0.5791 in step 1."
+    "note": "The step 1 value (1.2624, 359,240 cells) came from the same cube [-1,1]^3 with a different STL triangulation (other face diagonals); this run's mesh has 359,618 cells. p residuals agree within about 2 % to iteration 200, then diverge (0.028 vs 0.047 at 400) and this run's forces-FO Cd at 400 is 0.809: the cube's 400-iteration Cd is path dependent by about 35 %. Whether the gated value is also mesh-path independent is not tested (one gated run per body). Cone at 400: 0.5759 here vs 0.5791 in step 1. Review item 11 (2026-10-21, cases.Cube_tri2): the gated value with the other triangulation agrees within -0.02 % (1.14957 vs 1.14978), stop 1360 vs 1830."
   },
   "q5_force_first_scored_offline": {
     "cube": {
@@ -566,6 +566,283 @@
       ],
       "ref_Cd": 0.583,
       "reported_vs_ref_pct": 0.04597773684636874
+    },
+    "Cube_tri2": {
+      "case": "Cube_tri2",
+      "cells": 359597,
+      "frontal_area_m2": 4.0,
+      "history": [
+        1,
+        2000
+      ],
+      "trigger": 1360,
+      "written": 1361,
+      "lag": 1,
+      "offline_first_pass_every5": 1360,
+      "offline_first_pass_any": 1358,
+      "offline_agrees": true,
+      "converged": true,
+      "reasons": [],
+      "Cd_band_pct": 0.1522663751481951,
+      "p_initial": 0.0009842567,
+      "p_trend_orders_per_100": -0.08736227116364707,
+      "reported": {
+        "Cd_mean": 1.1495697336734692,
+        "Cd_min": 1.1488604081632652,
+        "Cd_max": 1.1506108163265305,
+        "Cl_mean": -0.0020459049318877548,
+        "Cl_min": -0.030706976530612242,
+        "Cl_max": 0.02509989489795918,
+        "Cs_mean": -0.00018913986107142852,
+        "Cs_min": -0.012237331632653059,
+        "Cs_max": 0.011015382653061224
+      },
+      "reported_N": {
+        "drag_N": 1126.578339,
+        "lift_N": -2.00498683325,
+        "side_N": -0.18535706384999998
+      },
+      "snapshot_Cd_at_written": 1.1489972539978544,
+      "fo_Cd_at_written": 1.1490304081632652,
+      "open_at": {
+        "400": {
+          "converged": false,
+          "reasons": [
+            "Cd band 49.14 % >= 0.5 % over iterations 201 to 400",
+            "p residual 3.3e-02 >= 0.001 (trend -0.04 orders per 100 iterations)"
+          ]
+        },
+        "800": {
+          "converged": false,
+          "reasons": [
+            "Cd band 3.46 % >= 0.5 % over iterations 601 to 800",
+            "p residual 3.1e-03 >= 0.001 (trend -0.18 orders per 100 iterations)"
+          ]
+        }
+      },
+      "late_mean_Cd_1801_2000": 1.147849844387755,
+      "late_vs_reported_pct": -0.1496115664265333,
+      "force_first_stop": 1020,
+      "force_first_Cd_mean": 1.154679838265306,
+      "force_first_vs_late_pct": 0.5950250297062272,
+      "gate_at_2000": {
+        "converged": true,
+        "reasons": [],
+        "band": 8.19633622926454e-05,
+        "residual": 0.0002453463,
+        "residual_trend": -0.10306243771441517,
+        "fx": {
+          "mean": 1.147849844387755,
+          "min": 1.147808469387755,
+          "max": 1.1479025510204082
+        }
+      },
+      "trace_every_100": [
+        [
+          100,
+          0.8648,
+          0.04599367
+        ],
+        [
+          200,
+          0.7883,
+          0.03998328
+        ],
+        [
+          300,
+          0.891,
+          0.03897689
+        ],
+        [
+          400,
+          1.2727,
+          0.03284642
+        ],
+        [
+          500,
+          1.263,
+          0.01951772
+        ],
+        [
+          600,
+          1.2008,
+          0.009448862
+        ],
+        [
+          700,
+          1.1708,
+          0.004813065
+        ],
+        [
+          800,
+          1.1601,
+          0.003140337
+        ],
+        [
+          900,
+          1.1557,
+          0.002559803
+        ],
+        [
+          1000,
+          1.153,
+          0.002028588
+        ],
+        [
+          1100,
+          1.1512,
+          0.001661352
+        ],
+        [
+          1200,
+          1.1501,
+          0.001361112
+        ],
+        [
+          1300,
+          1.1492,
+          0.001099277
+        ],
+        [
+          1400,
+          1.1487,
+          0.0008858919
+        ],
+        [
+          1500,
+          1.1483,
+          0.0007090605
+        ],
+        [
+          1600,
+          1.1481,
+          0.0005733477
+        ],
+        [
+          1700,
+          1.1479,
+          0.0004627304
+        ],
+        [
+          1800,
+          1.1479,
+          0.0003744629
+        ],
+        [
+          1900,
+          1.1478,
+          0.0003036616
+        ],
+        [
+          2000,
+          1.1478,
+          0.0002453463
+        ]
+      ],
+      "window_Cd_mean_every_100": [
+        [
+          400,
+          1.0308,
+          49.14
+        ],
+        [
+          500,
+          1.1735,
+          35.0
+        ],
+        [
+          600,
+          1.2315,
+          7.9
+        ],
+        [
+          700,
+          1.1982,
+          7.48
+        ],
+        [
+          800,
+          1.1719,
+          3.46
+        ],
+        [
+          900,
+          1.16,
+          1.27
+        ],
+        [
+          1000,
+          1.1553,
+          0.61
+        ],
+        [
+          1100,
+          1.1528,
+          0.38
+        ],
+        [
+          1200,
+          1.1512,
+          0.25
+        ],
+        [
+          1300,
+          1.1501,
+          0.17
+        ],
+        [
+          1400,
+          1.1493,
+          0.12
+        ],
+        [
+          1500,
+          1.1487,
+          0.08
+        ],
+        [
+          1600,
+          1.1484,
+          0.05
+        ],
+        [
+          1700,
+          1.1481,
+          0.03
+        ],
+        [
+          1800,
+          1.148,
+          0.02
+        ],
+        [
+          1900,
+          1.1479,
+          0.01
+        ],
+        [
+          2000,
+          1.1478,
+          0.01
+        ]
+      ],
+      "ref_Cd": 1.1497804357142856,
+      "reported_vs_ref_pct": -0.018325415381199896,
+      "date": "2026-10-21",
+      "what": "step 2 review item 11: gated cube with the other STL triangulation (binary body.stl from _step1/Cube, the 359,240-cell variant in step 1); inputs copied from _step2/Cube, controlDict regenerated by case3d 0.4.4 (gate and stop FOs, endTime 3000); same COARSE settings, 24 ranks, step2_tracer.sh",
+      "note_cells": "this rerun meshed to 359,597 cells, not the 359,240 of step 1; Stage 5 Cube has 359,618",
+      "vs_Cube": {
+        "Cd_mean_Cube": 1.1497804357142856,
+        "Cd_mean_Cube_tri2": 1.1495697336734692,
+        "pct": -0.018325415381199896,
+        "pass_band": [
+          1.1441,
+          1.1555
+        ],
+        "pass": true,
+        "late_1801_2000_pct": -0.07642336799035825,
+        "note": "two gated runs on near-identical COARSE meshes test triangulation sensitivity of the gated value, not mesh convergence"
+      }
     }
   }
 }
