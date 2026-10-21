@@ -369,8 +369,8 @@ Path dependence: the step 1 v2512 cube (`_step1/Cube`, 359,240 cells, Cd 1.2624 
 
 ### REVIEWER PROMPT
 ```
-FRESH SESSION. Review FIX_PLAN step 2 (convergence gate): commits 1a4d9e2, 382cc23 and the
-session-log commit after them. Read CLAUDE.md, docs/reference/step2_convergence_reference.md,
+FRESH SESSION. Review FIX_PLAN step 2 (convergence gate): commits 1a4d9e2, 382cc23, dc56044
+(Stage 6 QA fixes, 0.4.4) and the session-log commits after them. Read CLAUDE.md, docs/reference/step2_convergence_reference.md,
 SESSION_LOG.md last two entries, validation/step2_gate_v2512.json. Check, PASS/FAIL each:
 1. convergence.gate matches Q2 exactly: window n-199..n (200 values), band on Fx with abs(mean),
    p_initial at n only, n >= 400, cap reason only when not converged. Look for off-by-one.
@@ -387,8 +387,16 @@ SESSION_LOG.md last two entries, validation/step2_gate_v2512.json. Check, PASS/F
    shows "no convergence record"; field_state "solved" only with converged3d.
 7. results.progress returns the first p solve of the last iteration; note the 2D display effect.
 8. Tests: py -m unittest discover -s tests (67 run, 3 expected failures). No bpy in pure modules.
-9. No em dashes in added text; LF endings (git ls-files --eol); version 0.4.3 in manifest and bl_info.
+9. No em dashes in added text; LF endings (git ls-files --eol); version 0.4.4 in manifest and bl_info.
 10. The path-dependence claim (step 1 vs step 2 cube STL triangulation) is stated with its limits.
+11. Gated path independence (tests the Stage 5 caveat "one gated run per body"): rerun the cube
+   through the gate with the OTHER STL triangulation, the 359,240-cell variant (binary STL in
+   ~/wind_tunnel/_step1/Cube/constant/triSurface/body.stl), in a fresh case written by the current
+   case3d (Allrun with the gate, COARSE, 24 ranks, U 20, rho 1.225, cap 3000) under
+   ~/wind_tunnel/_step2/Cube_tri2. PASS when the gated Cd window mean agrees with 1.1498 within
+   0.5 % (1.1441 to 1.1555). Record stop iteration, cells, band, p residual, Cd mean/min/max and
+   the difference in % in validation/step2_gate_v2512.json under a new key (cases.Cube_tri2), with
+   the date. A FAIL means the gate does not remove the path dependence: report, do not tune.
 Use MSYS_NO_PATHCONV=1 for every wsl call. No sudo. Write docs/reviews/step2_review.md. Mark
 technical terms with an asterisk and add a short glossary.
 ```
@@ -414,3 +422,40 @@ STAGE 8: append to SESSION_LOG.md (the REVIEWER prompt above stays valid), updat
 RULES: no sudo; no em dashes; asterisk the terms and add a glossary; never call a result
 validated without a cited reference value.
 ```
+
+## 2026-10-21: FIX_PLAN step 2, stages 6 and 7 done (commit dc56044), version 0.4.4
+
+### Done
+- Stage 6 live QA in Bilal's Blender (new scene WT_QA, unsaved file, never saved), on copies so no
+  solved case was touched: `3d_QAOld` (copy of the v0.4.x 3d_Sphere), `3d_QAGated` (copy of
+  `_step2/Cube` without `2000/`, field re-exported at 1831, `forces_gated.json` as forces.json).
+  - Old record: "Not converged:" plus the no-record lines, no Cd or forces, state `unconverged`. PASS.
+  - Converged: "Converged at iteration 1831", "p residual 9.8e-04, Cd band 0.17 %", Cd 1.150
+    (1.149 to 1.151), Cl 0.001, Cs -0.002, Drag 1126.78 N (window means), state `solved`. PASS.
+  - Solving: "solving, iteration 53, p residual 7.5e-02, 0:38" on a live run, state `solving`. PASS.
+- Two defects found and fixed (Bilal's go), 0.4.4:
+  1. The default-width sidebar cut verdict lines longer than about 38 characters (the Cd line hid
+     Cl and Cs). `results.verdict_lines` now gives one item per line and wraps reasons at
+     `PANEL_CHARS = 38`; longest converged line 34 characters. Bilal checked the panel by eye: OK.
+  2. Stop 3D: `pkill -f "<case>/Allrun"` matched the `sh -c` that ran it (pkill -f tests the whole
+     command line), so the shell killed itself (exit 15) before `echo stopped`; status stayed
+     `solving`. Now `wsl.stop3d_command` with `Allru[n]`. Live Solve then Stop: status `stopped`,
+     no simpleFoam left, panel state `preview`.
+- Tests 70 run, 3 expected failures; deploy and headless smoke pass (0.4.4). Cleanup: WT_QA scene,
+  QA objects, every WT datablock, `3d_QA*` folders and `_step2/probe` (130 MB) deleted.
+
+### Open issues (added)
+- Toggling the add-on in Preferences did not reload its submodules (Blender kept 0.4.3 in
+  `sys.modules`); the reload worked after removing the `wind_tunnel*` modules first. Restarting
+  Blender is the reliable way to load new code.
+- Blender MCP screenshots froze after the reload (data changed, image did not); the property
+  strings were used as evidence and Bilal checked the panel himself.
+- While another object solves, the last run's verdict stays visible under a red "(last solve, not
+  the Test Object)" header; its own lines are only red when that run did not converge.
+- The other installed add-on `physical-open-waters` throws in its depsgraph handler when a scene
+  has no World (not ours; seen when WT_QA was created).
+
+### NEXT PROMPT (FIX_PLAN step 2 review)
+Use the REVIEWER PROMPT in the previous entry (items 1 to 11; item 11 is the gated rerun of the
+other cube triangulation). After the review closes, delete `~/wind_tunnel/_step2/Cube`, `Cone`
+(and `Cube_tri2`) only with Bilal's go, then FIX_PLAN step 3.
