@@ -371,7 +371,7 @@ Path dependence: the step 1 v2512 cube (`_step1/Cube`, 359,240 cells, Cd 1.2624 
 ```
 FRESH SESSION. Review FIX_PLAN step 2 (convergence gate): commits 1a4d9e2, 382cc23, dc56044
 (Stage 6 QA fixes, 0.4.4) and the session-log commits after them. Read CLAUDE.md, docs/reference/step2_convergence_reference.md,
-SESSION_LOG.md last two entries, validation/step2_gate_v2512.json. Check, PASS/FAIL each:
+SESSION_LOG.md last three entries, validation/step2_gate_v2512.json. Check, PASS/FAIL each:
 1. convergence.gate matches Q2 exactly: window n-199..n (200 values), band on Fx with abs(mean),
    p_initial at n only, n >= 400, cap reason only when not converged. Look for off-by-one.
 2. Parser: header from the last # line; unfinished last line dropped; restart dirs sorted
@@ -386,14 +386,15 @@ SESSION_LOG.md last two entries, validation/step2_gate_v2512.json. Check, PASS/F
 6. Panel: no Cd/Cl/forces shown when not converged; a v0.4.x forces.json (no converged key)
    shows "no convergence record"; field_state "solved" only with converged3d.
 7. results.progress returns the first p solve of the last iteration; note the 2D display effect.
-8. Tests: py -m unittest discover -s tests (67 run, 3 expected failures). No bpy in pure modules.
+8. Tests: py -m unittest discover -s tests (70 run, 3 expected failures). No bpy in pure modules.
 9. No em dashes in added text; LF endings (git ls-files --eol); version 0.4.4 in manifest and bl_info.
 10. The path-dependence claim (step 1 vs step 2 cube STL triangulation) is stated with its limits.
 11. Gated path independence (tests the Stage 5 caveat "one gated run per body"): rerun the cube
    through the gate with the OTHER STL triangulation, the 359,240-cell variant (binary STL in
-   ~/wind_tunnel/_step1/Cube/constant/triSurface/body.stl), in a fresh case written by the current
-   case3d (Allrun with the gate, COARSE, 24 ranks, U 20, rho 1.225, cap 3000) under
-   ~/wind_tunnel/_step2/Cube_tri2. PASS when the gated Cd window mean agrees with 1.1498 within
+   ~/wind_tunnel/_step1/Cube/constant/triSurface/body.stl). Build ~/wind_tunnel/_step2/Cube_tri2
+   from _step2/Cube's inputs only (Allrun, convergence.py, export_field.py, 0.orig, system,
+   constant without polyMesh), swap in that body.stl, then run `bash tools/audit/step2_tracer.sh
+   Cube_tri2` from WSL (same COARSE settings and 24 ranks as Stage 5). PASS when the gated Cd window mean agrees with 1.1498 within
    0.5 % (1.1441 to 1.1555). Record stop iteration, cells, band, p residual, Cd mean/min/max and
    the difference in % in validation/step2_gate_v2512.json under a new key (cases.Cube_tri2), with
    the date. A FAIL means the gate does not remove the path dependence: report, do not tune.
