@@ -479,3 +479,19 @@ other cube triangulation). After the review closes, delete `~/wind_tunnel/_step2
 ### NEXT PROMPT
 Bilal's ANIMATION A+B prompt (pressure slice sweep and smoke over the map), unchanged; its Stage 0
 gate now passes with this review. Then FIX_PLAN step 3 (wall mesh and y+).
+
+## 2026-10-21: WSL cleanup after the step 2 review (Bilal's go)
+
+- `~/wind_tunnel/_step2/Cube` copied to `~/wind_tunnel/_anim/Cube` (`cp -a`; 1439 files, 405
+  directories, 411,478,291 bytes in both, md5 of every file identical). The converged cube now
+  lives in `_anim/Cube`. Its root `forces.json` and `field.npz` are the ungated continuation's
+  export at 2000; the gated record is `forces_gated.json` (written 1831, Cd 1.1498) and the 1831
+  fields are in `1831/`. Re-export at 1831 if the animation must show the gated time exactly.
+- Deleted `~/wind_tunnel/_step2` (Cube, Cone, Cube_tri2, 1.2 GB) and `~/wind_tunnel/_audit` (3.2 GB).
+- Every number reported from them is already in validation/*.json: `_step2` in
+  `step2_gate_v2512.json` (the WSL `Cube_check.json` and `Cone_check.json` match `cases.Cube` and
+  `cases.Cone` key for key; `cases.Cube_tri2` added by the review), `_audit` (v1912, 1200-iteration
+  extension) in `baseline_v0.4.0.json` (Cd at 400 and 1200, 750-1200 spread, p residuals at 400, 800,
+  1200). The raw per-iteration histories and logs are gone; the json keeps them only as
+  every-100-iteration traces.
+- Left in `~/wind_tunnel`: the solved `3d_*` cases, `naca0012_re6e06`, `_step1`, `_anim`.
