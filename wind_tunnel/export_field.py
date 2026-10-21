@@ -269,7 +269,8 @@ def cp_from_p(p, p_inf, U_inf):
 
 
 def forces_record(t, ncells, Fp, Fv, Af, speed, rho, p_inf):
-    """forces.json content. Forces in N; p_inf kinematic, reported in Pa and as Cp against the outlet."""
+    """forces.json content. Forces in N; p_inf (the Cp reference, inlet mean) is kinematic, reported in Pa
+    and as its offset from the outlet p = 0 in units of q (p_inf_Cp_vs_outlet)."""
     F = Fp + Fv
     q = 0.5 * rho * speed ** 2
     return {"time": t, "cells": ncells, "drag_N": F[0], "side_N": F[1], "lift_N": F[2],
