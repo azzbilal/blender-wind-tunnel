@@ -495,3 +495,54 @@ gate now passes with this review. Then FIX_PLAN step 3 (wall mesh and y+).
   1200). The raw per-iteration histories and logs are gone; the json keeps them only as
   every-100-iteration traces.
 - Left in `~/wind_tunnel`: the solved `3d_*` cases, `naca0012_re6e06`, `_step1`, `_anim`.
+
+## 2026-10-22: ANIMATION A+B, stages 1 and 2 (Q1), stopped at the token limit
+
+- Prompt saved verbatim to `docs/prompts/anim_ab.md`; "Session workflow" section added to
+  CLAUDE.md (commit a634901).
+- Stage 1 done. Tests 70 run, OK, 3 expected failures. Blender MCP reachable (5.2.0 LTS, add-on
+  0.4.4, one scene "Scene", unsaved file).
+- Re-export at 1831 in `~/wind_tunnel/_anim/Cube`: `field.npz` and `forces.json` are now t = 1831;
+  the 2000 export is kept as `field_2000.npz` and `forces_2000.json`; `log.export1831` is the log.
+  Method: `export_field.py` takes the latest time directory and the full force history (to 2000),
+  so it ran in a temporary view `_anim/_v1831` with symlinks to `constant`, `system`, `1831`, the two
+  scripts and only `postProcessing/{forces,solverInfo}/0`, same arguments as Allrun
+  (`--speed 20.0 --rho 1.225 --nu 1.5e-05 --voxel 0.05 --L 2 --cap 3000`); the view was deleted.
+  All 35 keys of the new `forces.json` equal `forces_gated.json`: Cd 1.149141 at 1831, window
+  [1632, 1831] mean 1.149780. Fields 1831 vs 2000 differ by up to 1.38 m/s in U and 7.2 Pa in p.
+- Geometry facts (field.npz at 1831): grid x -2.5 to 6.0 m, y and z -2.5 to 2.5 m, h 0.05 m
+  (171 x 101 x 101); cube -1 to 1 m, L = 2 m; Cp over fluid voxels -0.700 to 1.025.
+- Q1 locked in `docs/reference/anim_ab_spec.md`: axis Y default (X/Y/Z choice), plus/minus 1.0 L
+  clamped to grid minus a margin, 192 frames ping-pong at constant speed, one keyframe per frame,
+  "Animate slice" replaces keys and sets the frame range, "Clear" removes them, "WT Label" built in
+  Geometry Nodes (String to Curves from WT Slice's location and the Pressure toggle, no Python
+  handler). Q2 and Q3 open.
+- No code changed, no version bump. Nothing created in Blender.
+
+### NEXT PROMPT (ANIMATION A+B, resume at Stage 2 Q2)
+Full slice: `docs/prompts/anim_ab.md`; follow it from Stage 2 Q2, same structure: fresh session,
+bounded context, grill one question at a time with recommendation first, TDD red then green,
+tracer on copies only (`_anim`, new scene WT_ANIM), HIL visual QA, close, handoff with REVIEWER and
+NEXT prompts, stop at about 100k tokens and never compact.
+
+CONTEXT TO LOAD: CLAUDE.md; this SESSION_LOG entry only; `docs/reference/anim_ab_spec.md`;
+`docs/prompts/anim_ab.md`; docs/ACCURACY_AUDIT.md section 6; wind_tunnel/viz3d.py (smoke tree,
+slice tree, write_vdb, load_volume). Do not read the solver modules.
+
+Facts established, do not re-derive:
+- Stage 0 gate passed (step 2 review 11/11 PASS); Stage 1 done (above). Do not re-export.
+- `_anim/Cube` root `field.npz` and `forces.json` are t = 1831 (Cd 1.149141, window mean 1.149780);
+  2000 export kept as `*_2000.*`.
+- Grid x -2.5 to 6.0 m, y and z plus/minus 2.5 m, h 0.05 m; cube -1 to 1 m, L = 2 m;
+  Cp (fluid voxels) -0.700 to 1.025.
+- The solve is steady; every frame shows only solved data.
+- WT Slice: Pressure toggle switches speed / Cp, both through one MapRange (speed 0.3 to 1.9,
+  Cp -2.5 to 1.0) and the speed ramp (open item a); faces deleted where sampled speed < 0.01 leave a
+  ring short of the outline at the grid edge (open item b).
+- WT Smoke: midpoint rule through the VDB; the surface slide acts within 0.05 L in both modes, plus a
+  push back onto the surface within 0.004 L; particles are deleted when speed < 0.02, age >
+  Lifetime, or farther than 6 L from the body centre.
+- Q1 locked (see spec).
+Next: Q2 (diverging Cp ramp: exact stops, range, legend), then Q3 (measure particles entering the
+solid per 100 frames without the slide, and RK4 drift over 1 L, then recommend), lock both in the
+spec, then Stage 3.
