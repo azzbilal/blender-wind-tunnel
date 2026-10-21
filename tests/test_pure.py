@@ -561,6 +561,82 @@ class SolidMask(unittest.TestCase):
         self.assertEqual(int(m.sum()), 39 ** 3)
 
 
+class AnimPure(unittest.TestCase):
+    """ANIMATION A+B Stage 3: the pure rules the slice, legend, label and sweep are built from."""
+
+    @classmethod
+    def setUpClass(cls):
+        global np
+        import numpy as np
+        cls.an = importlib.import_module("wind_tunnel.anim")
+
+    def test_cp_to_ramp_two_sided_and_clamped(self):
+        f = self.an.cp_to_ramp
+        self.assertEqual([f(c, -1.0, 1.0) for c in (-1.0, -0.5, 0.0, 0.5, 1.0)], [0.0, 0.25, 0.5, 0.75, 1.0])
+        self.assertEqual([f(c, -2.0, 1.0) for c in (-1.0, 0.0, 0.5)], [0.25, 0.5, 0.75])   # 0 stays neutral
+        self.assertEqual((f(-3.0, -1.0, 1.0), f(1.025, -1.0, 1.0)), (0.0, 1.0))
+        self.assertAlmostEqual(f(-0.70, -1.0, 1.0), 0.15)                  # the cube's deepest suction
+
+    def test_cp_stops_are_the_spec_table(self):
+        st = self.an.CP_STOPS
+        self.assertEqual([t for t, _ in st], [k / 8 for k in range(9)])
+        self.assertEqual(st[0][1], (0.0437, 0.0723, 0.5271))
+        self.assertEqual(st[4][1], (0.7207, 0.7207, 0.7205))
+        self.assertEqual(st[8][1], (0.4564, 0.0012, 0.0194))
+        for (_, lin), srgb in zip(st, self.an.CP_STOPS_SRGB):              # the columns agree to 8 bits
+            self.assertEqual(tuple(round(255 * self.an.linear_to_srgb(c)) for c in lin), srgb)
+
+    def test_sweep_keyframes_pingpong_constant_speed(self):
+        keys = self.an.sweep_keyframes("Y", (0.0, 0.1, 0.0), 2.0, 192, True)
+        frames = [f for f, _ in keys]
+        y = [p[1] for _, p in keys]
+        self.assertEqual(frames, list(range(1, 193)))
+        self.assertEqual((y[0], y[96]), (-1.9, 2.1))                        # ends exactly at the limits
+        self.assertTrue(all(p[0] == 0.0 and p[2] == 0.0 for _, p in keys))
+        steps = np.abs(np.diff(y + [y[0]]))                                 # closes the loop at frame 193
+        self.assertTrue(np.allclose(steps, 4.0 / 96, atol=1e-12))
+        self.assertTrue(all(abs(y[f - 1] - y[194 - f - 1]) < 1e-12 for f in range(2, 193)))
+
+    def test_sweep_half_range_clamped_to_grid(self):
+        f = self.an.sweep_half_range
+        lo, hi = (-2.5, -2.5, -2.5), (6.0, 2.5, 2.5)
+        self.assertAlmostEqual(f("Y", (0, 0, 0), 2.0, lo, hi, 0.05), 2.0)
+        self.assertAlmostEqual(f("X", (0, 0, 0), 2.0, lo, hi, 0.05), 2.0)
+        self.assertAlmostEqual(f("Y", (0, 0, 0), 4.0, lo, hi, 0.05), 2.0)  # 1 L would leave the grid
+        self.assertAlmostEqual(f("Z", (0, 0, 1.0), 2.0, lo, hi, 0.05), 1.0)
+
+    def test_slice_keep_grid_bounds_and_solid(self):
+        solid = np.zeros((11, 11, 11), bool)
+        solid[5, 5, 5] = True
+        pts = np.array([[2.5, 2.5, 2.5], [4.5, 5.0, 5.0], [5.0, 5.0, 6.0], [-0.1, 2, 2], [10.0, 2, 2],
+                        [10.01, 2, 2], [5.5, 5.5, 5.5]])
+        keep = self.an.slice_keep(pts, (0.0, 0.0, 0.0), 1.0, solid)
+        self.assertEqual(keep.tolist(), [True, False, True, False, True, False, False])
+
+    def test_slice_keep_symmetric_for_symmetric_mask(self):
+        g = -2.5 + 0.05 * np.arange(101)
+        solid = (np.abs(g)[:, None, None] <= 1.0) & (np.abs(g)[None, :, None] <= 1.0) & (np.abs(g)[None, None, :] <= 1.0)
+        a = np.linspace(-2.5, 2.5, 161)
+        P = np.array([[x, 0.3, z] for x in a for z in a])
+        k = self.an.slice_keep(P, (-2.5, -2.5, -2.5), 0.05, solid).reshape(161, 161)
+        self.assertTrue((k == k[::-1, :]).all() and (k == k[:, ::-1]).all())
+        self.assertFalse(k[80, 80])
+        self.assertEqual(int((~k).sum()), int((~k[:, 80]).sum()) ** 2)    # a square hole
+
+    def test_label_text(self):
+        f = self.an.label_text
+        self.assertEqual(f("Y", 0.85, 2.0, True), "Slice y = +0.85 m (+0.43 L) | Cp")
+        self.assertEqual(f("X", -2.0, 2.0, False), "Slice x = -2.00 m (-1.00 L) | speed/U_inf")
+
+    def test_legend_ticks(self):
+        f = self.an.legend_ticks
+        self.assertEqual(f(True, -1.0, 1.0),
+                         [(0.0, "<= -1.0"), (0.25, "-0.5"), (0.5, "0"), (0.75, "+0.5"), (1.0, ">= +1.0")])
+        self.assertEqual(f(True, -2.0, 1.0)[1], (0.25, "-1.0"))
+        self.assertEqual(f(False, -1.0, 1.0),
+                         [(0.0, "0.3"), (0.25, "0.7"), (0.5, "1.1"), (0.75, "1.5"), (1.0, "1.9")])
+
+
 class ExportVerdict(unittest.TestCase):
     """FIX_PLAN step 2 design constraint 4: forces.json verdict keys from the full history."""
 
