@@ -63,4 +63,38 @@ Data: `~/wind_tunnel/_anim/Cube`, steady solution at t = 1831 (gated, window-mea
   legend strip and samples the pixel colour at the 9 stop positions; each must equal the sRGB column
   within plus/minus 2/255. Recorded in `validation/anim_ab_v2512.json`.
 
-## Q3 Smoke honesty (surface slide in solved mode, solid-mask deletion, RK4 drift): OPEN
+## Q3 Smoke honesty (surface slide in solved mode, solid-mask deletion, RK4 drift): LOCKED 2026-10-22
+
+Measured first (`validation/anim_ab_q3_measure.json`, scripts `tools/audit/anim_q3_smoke.py` and
+`tools/audit/anim_q3_drift.py`; headless Blender 5.2 factory startup, 24 fps, U_inf 20 m/s, 150
+particles per frame, step 0.0667 m = 1.33 voxels per frame, Sample Grid Trilinear):
+- Python twin of the midpoint step reproduces Blender frame 40 -> 41 for 6000 particles to 2.4e-6 voxel.
+- Drift vs RK4 (step at most 0.07 voxel) at equal arc length over 1 L, 3000 release points:
+  slide off max 0.062 voxel near body (2206 paths), 0.008 voxel freestream (794 paths);
+  slide on (as shipped) max 23.5 and 24.7 voxels, caused by the edge bug (open issue d).
+- Slide off, 100 frames, 15000 released: 1 particle enters the cube box (1.1 mm deep, frame 80); the
+  RK4 streamline from its release point also enters (2.5 mm), so the resampled field carries it in
+  (audit section 6), not the integrator. The still rule (speed < 0.02 U_inf) deletes 46 of 15000
+  (0.31 %), all within 0.0176 m (0.35 voxel) of the surface, median 0.2 mm, and deletes the box
+  entrant at frame 75, five frames before it enters: 0 particles inside the cube.
+
+Decision:
+- Solved mode (Use Field on): surface slide band and push back both OFF. Particles move by the
+  midpoint rule through WT Flow only.
+- Solid-entry rule: the existing still rule (sampled speed < 0.02 U_inf), kept as is. It is a speed
+  proxy, not a geometric inside test; its deletions are near-wall stagnation particles.
+- Not the solid mask: it spans x -1.00..1.00 but y, z -0.95..1.00 (64000 nodes; a closed box would
+  have 68921), and at nearest node it flags fluid up to 0.67 voxel outside the wall (open issue e).
+- Preview mode (Use Field off) keeps the slide; its edge bug is Q4.
+- Stage 4 metric "particles inside the solid" = inside the Test Object (for the cube: |x|, |y|,
+  |z| < 1 m) over the whole animation, target 0; the solid-mask count is reported next to it, not
+  gated. Stage 3 headless check reads the band and margin values of the solved-mode smoke tree.
+
+Open issues found here:
+- d: slide band test uses gap = (P - nearest) . n with n of one face next to the nearest edge, so in
+  a 0.1 m slab around each face plane, beyond the edges, the velocity along that normal is removed,
+  and the push back can move a particle onto an edge (up to 0.42 m seen). Affects preview mode. Q4.
+- e: export_field solid mask is asymmetric (one node layer short on the -y and -z faces). Solver-side
+  (export_field.py), for FIX_PLAN; not fixed in this slice.
+
+## Q4 Preview-mode slide (edge bug d): OPEN
