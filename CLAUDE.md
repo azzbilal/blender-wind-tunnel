@@ -127,4 +127,6 @@ in this structure and saved under `docs/prompts/` (example: `docs/prompts/anim_a
 8. **Handoff:** append to `SESSION_LOG.md` what was done, decisions, numbers, open issues, a
    REVIEWER PROMPT and a NEXT PROMPT, both written in this same structure.
 9. **Review** runs in its own fresh session and saves its report to `docs/reviews/`.
-10. **Stop at about 100k tokens**, write `SESSION_LOG.md` and tell Bilal; never compact.
+10. **Token budget** (Claude cannot see its own count; Bilal watches it): end work at stage
+    boundaries, start no new heavy stage after about 150k tokens, hand off at about 200k (write
+    `SESSION_LOG.md`, tell Bilal); never compact.

@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-22",
+  "issue": "open issue e: export_field solid mask one node layer short on the -y and -z faces",
+  "case": "~/wind_tunnel/_anim/Cube (copy), fields at t = 1831 (gated), no solve",
+  "mesh_cells": 359618,
+  "iterations": 1831,
+  "grid": {"x": [-2.5, 6.0], "y": [-2.5, 2.5], "z": [-2.5, 2.5], "h_m": 0.05, "nodes": [171, 101, 101]},
+  "body": "cube -1 to 1 m on every axis, faces exactly on grid planes (index 30 and 70)",
+  "cause": [
+    "column range rounding: dy = gy[1] - gy[0] = 0.04999999999999982, (-1 - y0) / dy = 30.0000000000001, ceil gives 31, so the y = -1 and z = -1 columns were never tested",
+    "diagonal tie: a column on the shared diagonal of the two triangles of an x face counts two crossings per face, so the pair test filled only the two end nodes"
+  ],
+  "fix": "inside_mask casts each column four times offset by (+-1e-3 dy, +-0.618e-3 dz) and ORs the results, x span widened by 1e-3 dx; nodes on the surface count as solid on every face",
+  "synthetic_test": "tests/test_pure.py SolidMask: grid-aligned cube gives 41^3 = 68921 and mirror symmetry; cube at +-0.97 gives 39^3 = 59319 (no inflation)",
+  "before": {"solid_nodes": 64000, "y_span_m": [-0.95, 1.0], "z_span_m": [-0.95, 1.0], "field_npz_sha1": "ab5348ab5db01a7d31428bd72ed9ba4c9b3d46a1"},
+  "after": {"solid_nodes": 68921, "x_span_m": [-1.0, 1.0], "y_span_m": [-1.0, 1.0], "z_span_m": [-1.0, 1.0], "mirror_y": true, "mirror_z": true, "field_npz_sha1": "5868c18eb95212e0880898e04d211628a2771b29"},
+  "nodes_added": 4921,
+  "nodes_removed": 0,
+  "U_p_changed_only_at_added_nodes": true,
+  "U_p_at_added_nodes": "0 (write_field_npz zeroes every solid node; U = 0 is the no-slip wall value, p = 0 there is not physical and is clipped from the slice)",
+  "forces_json_sha1": "77061b3d1e998e5ee6f59731e38d658e029df80c (unchanged, equal to forces_gated.json; Cd 1.1491410217993128)",
+  "note": "a fresh export rewrites the verdict block from the log history to 2000 (kept as forces_1831e_verdict2000.json); the gated record was restored as forces.json, as in Stage 1. Backups: field_1831_pre_e.npz, forces_1831_pre_e.json, export_field_pre_e.py"
+}

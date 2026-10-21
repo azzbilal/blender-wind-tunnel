@@ -170,35 +170,41 @@ def cell_centres(pts, sizes, starts, toks, owner, neigh, ncells):
 
 
 def inside_mask(tris, grid_x, grid_y, grid_z):
-    """Voxels inside the closed surface, by counting crossings of rays along +x for every (y, z) column."""
+    """Voxels inside the closed surface, by counting crossings of rays along +x for every (y, z) column.
+
+    Nodes on the surface count as solid, the same on every face. A ray through a mesh edge or vertex
+    is a tie (two crossings, or none), so each column is cast four times, offset by
+    (+-1e-3 dy, +-0.618e-3 dz) (unequal, so no offset runs along a 45 degree diagonal), and the four
+    results are OR'ed; the x span is widened by 1e-3 dx. A wall exactly on a grid plane then gives
+    the same layer on both sides of the body (open issue e)."""
     ny, nz = len(grid_y), len(grid_z)
-    hits = [[[] for _ in range(nz)] for _ in range(ny)]
     y0, dy = grid_y[0], grid_y[1] - grid_y[0]
     z0, dz = grid_z[0], grid_z[1] - grid_z[0]
-    for a, b, c in tris:
-        ymin, ymax = min(a[1], b[1], c[1]), max(a[1], b[1], c[1])
-        zmin, zmax = min(a[2], b[2], c[2]), max(a[2], b[2], c[2])
-        j0, j1 = max(int(np.ceil((ymin - y0) / dy)), 0), min(int(np.floor((ymax - y0) / dy)), ny - 1)
-        k0, k1 = max(int(np.ceil((zmin - z0) / dz)), 0), min(int(np.floor((zmax - z0) / dz)), nz - 1)
-        if j0 > j1 or k0 > k1:
-            continue
-        d = (b[1] - a[1]) * (c[2] - a[2]) - (c[1] - a[1]) * (b[2] - a[2])
-        if abs(d) < 1e-18:
-            continue
-        for j in range(j0, j1 + 1):
-            py = y0 + j * dy
-            for k in range(k0, k1 + 1):
-                pz = z0 + k * dz
-                u = ((py - a[1]) * (c[2] - a[2]) - (c[1] - a[1]) * (pz - a[2])) / d
-                v = ((b[1] - a[1]) * (pz - a[2]) - (py - a[1]) * (b[2] - a[2])) / d
-                if u >= 0 and v >= 0 and u + v <= 1:
-                    hits[j][k].append(a[0] + u * (b[0] - a[0]) + v * (c[0] - a[0]))
+    ex = 1e-3 * (grid_x[1] - grid_x[0])
     solid = np.zeros((len(grid_x), ny, nz), dtype=bool)
-    for j in range(ny):
-        for k in range(nz):
-            xs = sorted(hits[j][k])
-            for m in range(0, len(xs) - 1, 2):
-                solid[(grid_x >= xs[m]) & (grid_x <= xs[m + 1]), j, k] = True
+    for oy, oz in ((sy * 1e-3 * dy, sz * 0.618e-3 * dz) for sy in (1, -1) for sz in (1, -1)):
+        hits = [[[] for _ in range(nz)] for _ in range(ny)]
+        for a, b, c in tris:
+            ymin, ymax = min(a[1], b[1], c[1]), max(a[1], b[1], c[1])
+            zmin, zmax = min(a[2], b[2], c[2]), max(a[2], b[2], c[2])
+            j0, j1 = max(int(np.floor((ymin - y0) / dy)), 0), min(int(np.ceil((ymax - y0) / dy)), ny - 1)
+            k0, k1 = max(int(np.floor((zmin - z0) / dz)), 0), min(int(np.ceil((zmax - z0) / dz)), nz - 1)
+            if j0 > j1 or k0 > k1:
+                continue
+            d = (b[1] - a[1]) * (c[2] - a[2]) - (c[1] - a[1]) * (b[2] - a[2])
+            if abs(d) < 1e-18:
+                continue
+            py, pz = np.meshgrid(y0 + oy + dy * np.arange(j0, j1 + 1), z0 + oz + dz * np.arange(k0, k1 + 1),
+                                 indexing="ij")
+            u = ((py - a[1]) * (c[2] - a[2]) - (c[1] - a[1]) * (pz - a[2])) / d
+            v = ((b[1] - a[1]) * (pz - a[2]) - (py - a[1]) * (b[2] - a[2])) / d
+            for j, k in zip(*np.nonzero((u >= 0) & (v >= 0) & (u + v <= 1))):
+                hits[j0 + j][k0 + k].append(a[0] + u[j, k] * (b[0] - a[0]) + v[j, k] * (c[0] - a[0]))
+        for j in range(ny):
+            for k in range(nz):
+                xs = sorted(hits[j][k])
+                for m in range(0, len(xs) - 1, 2):
+                    solid[(grid_x >= xs[m] - ex) & (grid_x <= xs[m + 1] + ex), j, k] = True
     return solid
 
 

@@ -525,6 +525,42 @@ class Case3DGate(unittest.TestCase):
         self.assertIn("--cap 2500", self.script.read_text())
 
 
+class SolidMask(unittest.TestCase):
+    """Open issue e: a wall that lies exactly on a grid plane gives the same node layer on every face."""
+
+    @classmethod
+    def setUpClass(cls):
+        global np
+        import numpy as np
+        cls.ef = importlib.import_module("wind_tunnel.export_field")
+        h = 0.05                                            # the _anim/Cube grid (171 x 101 x 101)
+        cls.gx, cls.gy = -2.5 + h * np.arange(171), -2.5 + h * np.arange(101)
+
+    @staticmethod
+    def cube(lo, hi):
+        v = [[x, y, z] for x in (lo, hi) for y in (lo, hi) for z in (lo, hi)]
+        quads = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
+        return np.array([t for a, b, c, d in quads for t in ((v[a], v[b], v[c]), (v[a], v[c], v[d]))], float)
+
+    def spans(self, m):
+        out = []
+        for ax, g in ((0, self.gx), (1, self.gy), (2, self.gy)):
+            idx = np.where(m.any(axis=tuple(i for i in range(3) if i != ax)))[0]
+            out.append((round(g[idx[0]], 6), round(g[idx[-1]], 6)))
+        return out
+
+    def test_grid_aligned_cube_is_closed_and_symmetric(self):
+        m = self.ef.inside_mask(self.cube(-1.0, 1.0), self.gx, self.gy, self.gy)
+        self.assertEqual(self.spans(m), [(-1.0, 1.0)] * 3)
+        self.assertEqual(int(m.sum()), 41 ** 3)             # every node with |x|, |y|, |z| <= 1 m
+        self.assertTrue((m == m[:, ::-1, :]).all() and (m == m[:, :, ::-1]).all())
+
+    def test_cube_between_nodes_is_not_inflated(self):
+        m = self.ef.inside_mask(self.cube(-0.97, 0.97), self.gx, self.gy, self.gy)
+        self.assertEqual(self.spans(m), [(-0.95, 0.95)] * 3)
+        self.assertEqual(int(m.sum()), 39 ** 3)
+
+
 class ExportVerdict(unittest.TestCase):
     """FIX_PLAN step 2 design constraint 4: forces.json verdict keys from the full history."""
 
