@@ -97,4 +97,14 @@ Open issues found here:
 - e: export_field solid mask is asymmetric (one node layer short on the -y and -z faces). Solver-side
   (export_field.py), for FIX_PLAN; not fixed in this slice.
 
-## Q4 Preview-mode slide (edge bug d): OPEN
+## Q4 Preview-mode slide (edge bug d): LOCKED 2026-10-22
+
+- Fixed in Stage 3, preview mode only (solved mode has no slide, Q3).
+- Band test: Proximity `Distance` (true distance to the Test Object surface) < 0.05 L.
+- Slide direction: unit vector (P - nearest point); the inward part of v along it is removed.
+- Push back unchanged: inside when (P - nearest) . n_face < 0.004 L, moved to nearest + 0.004 L n_face.
+  Known limit: near concave edges (for example Suzanne) the sign test can misjudge; a robust test
+  needs angle-weighted pseudonormals, which Geometry Nodes does not provide. Recorded, not solved.
+- Headless Blender test on the 2 m cube, wind (20, 0, 0): a particle at (-1.066, -1.467, -0.25)
+  keeps v = (20, 0, 0) after one step (moves 0.0667 m in x, y and z unchanged); a particle 1 mm
+  inside the front face at (-0.999, 0.3, 0.2) ends outside, x < -1.
