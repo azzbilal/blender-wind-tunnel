@@ -22,13 +22,16 @@
     "cube": {
       "Cd_400_v2512_step1": 1.2624,
       "Cd_gated": 1.1497804357142856,
-      "pct": -8.921068146840495
+      "pct": -8.921068146840495,
+      "Cd_400_this_run_forces_FO": 0.8094
     },
     "cone": {
       "Cd_400_v2512_step1": 0.5791,
       "Cd_gated": 0.5832680502058143,
-      "pct": 0.7197461933714979
-    }
+      "pct": 0.7197461933714979,
+      "Cd_400_this_run_forces_FO": 0.5759
+    },
+    "note": "The step 1 value (1.2624, 359,240 cells) came from the same cube [-1,1]^3 with a different STL triangulation (other face diagonals); this run's mesh has 359,618 cells. p residuals agree within about 2 % to iteration 200, then diverge (0.028 vs 0.047 at 400) and this run's forces-FO Cd at 400 is 0.809: the cube's 400-iteration Cd is path dependent by about 35 %. Whether the gated value is also mesh-path independent is not tested (one gated run per body). Cone at 400: 0.5759 here vs 0.5791 in step 1."
   },
   "q5_force_first_scored_offline": {
     "cube": {

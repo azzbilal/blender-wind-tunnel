@@ -326,3 +326,91 @@ STAGE 8: append to SESSION_LOG.md with REVIEWER and NEXT prompts.
 RULES: stop at about 100k tokens and write SESSION_LOG.md; no sudo; no em dashes; asterisk the
 terms and add a glossary; never call a result validated without a cited reference value.
 ```
+
+## 2026-10-21: FIX_PLAN step 2, stages 4 and 5 done (commits 1a4d9e2, 382cc23), version 0.4.3, Stage 6 pending
+
+### Decision added by the grill
+| # | Answer |
+|---|---|
+| Q5 | Keep both criteria hard (band AND p residual < 1e-3 AND n >= 400, cap 3000). Reasons carry the p residual trend over the window (orders per 100 iterations). No "converged with residual plateau" state. Basis: in the v1912 `_audit` cube history the p residual is not plateaued at 1200 (2.40, 2.51, 2.61, 2.70, 2.79 orders at 800 to 1200, about 0.09 orders per 100 iterations; window max/min 1.57 down to 1.24), and the Cd band already passes at 1200 while Cd still drifts, so a force-first gate would stop on a moving Cd. Scored offline in Stage 5 (below): confirmed |
+
+### Done
+- Stage 4 (TDD, red then green; 67 tests, 3 expected failures): `wind_tunnel/convergence.py` (stdlib: header-driven `.dat` parser, unfinished last line dropped, restart dirs merged numerically with later rows winning, `gate()`, `--trigger` CLI that never fails the solver); case3d controlDict FOs (`forces`, `solverInfo`, `gate` systemCall every 5, `stop` abort with `file "wt_stop"`), `endTime` = cap, `Setup3D.iterations` 3000, `residualControl` removed, Allrun fails at once as root and runs `rm -f wt_stop` before simpleFoam, `convergence.py` copied into every case, `--cap` passed to export; `export_field.verdict_record` merged into forces.json; `results.forces_converged` and `results.verdict_lines` (Q4 wording); `__init__.py`: "Max iterations" default 3000, min 400, `converged3d`/`verdict3d`, new state "unconverged" (field loaded and flagged, no Cd or forces shown), progress line shows iteration and p residual.
+- `results.progress` now returns the FIRST p solve of the last iteration (the gate's quantity), not the last p solve. This also changes the 2D panel's residual display (display only).
+- Source facts read this session: abort resolves a relative `file` against the case (`abort.C:170-172`) and deletes the trigger file at construction and at `end()` (`:154`, `:253`), so `wt_stop` never survives the run; systemCall ignores the call's return code (`systemCall.C:68`).
+- Deploy and headless smoke check pass (0.4.3 registered). Bilal has not reloaded the add-on yet.
+- Stage 5 on v2512, 24 ranks, COARSE, `~/wind_tunnel/_step2/{Cube,Cone}`; scripts `tools/audit/step2_tracer.sh`, `tools/audit/step2_check.py`; record `validation/step2_gate_v2512.json`.
+
+### Numbers (Stage 5)
+| | Cube (359,618 cells) | Cone (355,379 cells) |
+|---|---|---|
+| gate trigger / written (lag) | 1830 / 1831 (1) | 725 / 726 (1) |
+| offline first pass, every 5 / any | 1830 / 1829 | 725 / 724 |
+| band, p residual, trend | 0.17 %, 9.82e-4, -0.087 orders/100 | 0.21 %, 9.61e-4, -0.185 orders/100 |
+| Cd window mean (min to max) | 1.1498 (1.1490 to 1.1510) | 0.5833 (0.5826 to 0.5838) |
+| Cl, Cs window means | 0.0010, -0.0021 | 0.0002, 0.0001 |
+| Cd mean 1801-2000, vs reported | 1.1487, -0.09 % | 0.5822, -0.18 % |
+| forces FO vs face sum at written time | 1.14917 vs 1.14914 | 0.58257 vs 0.58260 |
+| Q5 force-first (band only): stop, Cd, vs 1801-2000 | 1570, 1.1539, +0.45 % | 675, 0.5831, +0.16 % |
+| vs the project's own v1912 1200-iteration audit value (not experiment) | 1.151: -0.11 %, below the 1.151 to 1.173 spread by 0.0012 | 0.583: +0.05 % |
+| Cd at 400 in this run (forces FO) | 0.809 | 0.576 |
+
+Acceptance: (a) cube gate open at 400 (band 33.6 %) and 800 (band 42.2 %): pass. (b) both within 1 %: pass. (c) cone within 1 % of 0.583: pass. None of this is validation against experiment.
+
+Cube trajectory (forces FO Cd every 100 iterations): 0.85, 0.77, 0.78, 0.81 (400), 0.86, 0.90, 1.18, 1.26 (800), 1.27, 1.20, 1.18, 1.17 (1200), 1.16, 1.155, 1.153, 1.151, 1.150, 1.149, 1.149, 1.148 (2000). The p residual reaches 1e-3 at about 1830, not the ~1450 extrapolated from the v1912 data.
+
+Path dependence: the step 1 v2512 cube (`_step1/Cube`, 359,240 cells, Cd 1.2624 at 400) is the same cube [-1,1]^3 with a different STL triangulation (other face diagonals and triangle order); every other input is identical apart from residualControl. Residuals agree within about 2 % to iteration 200, then split (0.028 vs 0.047 at 400). The cube's 400-iteration Cd therefore varies by about 35 % between near-identical meshes. The Stage 5 commit headline "1.2624 -> 1.1498 (-8.9 %)" compares against that other mesh; against this run's own 400 value the change is 0.809 -> 1.150 (+42 %). Whether the gated value is equally path independent is not tested (one gated run per body).
+
+### Open issues (added)
+- Verdict flip: the gate passes at n, the run writes n+1 and export recomputes at n+1; in principle n+1 could fail the band and show "not converged". Not seen (both cases still pass at the written time).
+- A scene saved with `iterations3d` below 400 keeps its stored value (Blender does not re-clamp on load); that run would end at the cap with "before 400" as a reason.
+- `_step2/probe` (130 MB): delete after step 2 is committed (Bilal's go, given). `_step2/Cube` and `Cone` (about 400 MB each) are the Stage 5 evidence; keep until the step 2 review closes.
+- Gate cost not measured separately; cube wall time 10 min to 1831 on 24 ranks (about 0.33 s per iteration).
+
+### REVIEWER PROMPT
+```
+FRESH SESSION. Review FIX_PLAN step 2 (convergence gate): commits 1a4d9e2, 382cc23 and the
+session-log commit after them. Read CLAUDE.md, docs/reference/step2_convergence_reference.md,
+SESSION_LOG.md last two entries, validation/step2_gate_v2512.json. Check, PASS/FAIL each:
+1. convergence.gate matches Q2 exactly: window n-199..n (200 values), band on Fx with abs(mean),
+   p_initial at n only, n >= 400, cap reason only when not converged. Look for off-by-one.
+2. Parser: header from the last # line; unfinished last line dropped; restart dirs sorted
+   numerically, later wins; columns by name (force.dat total_x/y/z, solverInfo p_initial).
+3. controlDict FO order forces, solverInfo, gate, stop; executeInterval 5; abort file relative
+   (abort.C:170-172); rhoInf from Setup3D.rho; endTime = cap; no residualControl in fvSolution.
+4. Recompute from ~/wind_tunnel/_step2/{Cube,Cone}/postProcessing with your own short script
+   (not convergence.py): trigger iteration, window mean/min/max Cd, band, 1801-2000 mean. Must
+   match validation/step2_gate_v2512.json to 4 significant figures.
+5. Cd = Fx / (0.5 rho U^2 A_frontal), Cl = Fz, Cs = Fy in export_field.verdict_record; forces FO
+   vs face sum at the written time agree (log the difference).
+6. Panel: no Cd/Cl/forces shown when not converged; a v0.4.x forces.json (no converged key)
+   shows "no convergence record"; field_state "solved" only with converged3d.
+7. results.progress returns the first p solve of the last iteration; note the 2D display effect.
+8. Tests: py -m unittest discover -s tests (67 run, 3 expected failures). No bpy in pure modules.
+9. No em dashes in added text; LF endings (git ls-files --eol); version 0.4.3 in manifest and bl_info.
+10. The path-dependence claim (step 1 vs step 2 cube STL triangulation) is stated with its limits.
+Use MSYS_NO_PATHCONV=1 for every wsl call. No sudo. Write docs/reviews/step2_review.md. Mark
+technical terms with an asterisk and add a short glossary.
+```
+
+### NEXT PROMPT (FIX_PLAN step 2, finish: stages 6 to 8)
+```
+FRESH SESSION. Slice: FIX_PLAN step 2, finish at Stage 6. Load CLAUDE.md and SESSION_LOG.md last
+entry only. Stages 4 and 5 are done and committed; do not rerun them.
+STAGE 6 (needs Bilal's OK first; he restarts Blender or toggles the add-on to load 0.4.3): QA in
+his live Blender through the Blender MCP, in a NEW scene, never his objects. Three wordings:
+ - not converged (old record): a fresh cube object named for an existing v0.4.x case, Load 3D:
+   expect "Not converged: / no convergence record ...", no Cd or forces, field loaded and flagged.
+ - converged: copy ~/wind_tunnel/_step2/Cube to ~/wind_tunnel/3d_<QAname> with forces_gated.json
+   as forces.json (the current forces.json there is the 2000 export) and the matching field, then
+   Load 3D on an object of that name: expect "Converged at iteration 1831: p residual 9.8e-04, Cd
+   band 0.17 %", Cd 1.150 (1.149 to 1.151) and window-mean forces.
+ - solving: a short live run shows "solving, iteration N, p residual r".
+Remove the QA scene, every WT datablock it made and the 3d_<QAname> folder afterwards; never save
+his file. Wait for his OK.
+STAGE 7: tests, deploy, smoke; commit stating the Cd change (Stage 5 numbers and the
+path-dependence note). Then delete ~/wind_tunnel/_step2/probe.
+STAGE 8: append to SESSION_LOG.md (the REVIEWER prompt above stays valid), update the memory file.
+RULES: no sudo; no em dashes; asterisk the terms and add a glossary; never call a result
+validated without a cited reference value.
+```

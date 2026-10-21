@@ -9,7 +9,9 @@ is the signal to remove the marker.
 """
 from __future__ import annotations
 
+import contextlib
 import importlib
+import io
 import importlib.util
 import json
 import math
@@ -426,25 +428,29 @@ class ConvergenceTrigger(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def _main(self):
+        with contextlib.redirect_stdout(io.StringIO()):          # the gate prints its verdict for the solver log
+            return self.cv.main([str(self.case), "--trigger"])
+
     def test_pass_writes_stop_file(self):
         write_history(self.case, 0, *steady(600))
-        self.assertEqual(self.cv.main([str(self.case), "--trigger"]), 0)
+        self.assertEqual(self._main(), 0)
         self.assertEqual((self.case / "wt_stop").read_text(), "action=writeNow\n")
 
     def test_open_gate_writes_nothing(self):
         write_history(self.case, 0, *steady(600, res=2e-3))
-        self.assertEqual(self.cv.main([str(self.case), "--trigger"]), 0)
+        self.assertEqual(self._main(), 0)
         self.assertFalse((self.case / "wt_stop").exists())
 
     def test_no_history_is_not_an_error(self):
-        self.assertEqual(self.cv.main([str(self.case), "--trigger"]), 0)
+        self.assertEqual(self._main(), 0)
         self.assertFalse((self.case / "wt_stop").exists())
 
     def test_unreadable_history_is_not_an_error(self):
         d = self.case / "postProcessing" / "forces" / "0"
         d.mkdir(parents=True)
         (d / "force.dat").write_text("# Time total_x total_y total_z\n1 abc 0 0\n", newline="\n")
-        self.assertEqual(self.cv.main([str(self.case), "--trigger"]), 0)
+        self.assertEqual(self._main(), 0)
         self.assertFalse((self.case / "wt_stop").exists())
 
 
