@@ -73,7 +73,9 @@ docs/                   ACCURACY_AUDIT.md (findings), FIX_PLAN.md (ordered work 
    Zone) advects particles through it; `WT Slice` samples speed or Cp.
 
 Conventions: wind along +X, metres, m/s. OpenFOAM `p` is kinematic (m2/s2); multiply by rho
-(1.225) for Pa. Pressure reference is the outlet (`p = 0`), which is wrong for Cp (audit #4).
+(1.225) for Pa. The solver fixes `p = 0` at the outlet; Cp uses p_inf = area-weighted mean static
+pressure on the inlet patch (FIX_PLAN step 1, `export_field.inlet_reference_pressure`), subtracted
+in `field.npz` (key `p_inf_Pa`). Forces use the raw p (a uniform offset integrates to 0 on a closed body).
 
 ## Commands
 

@@ -35,6 +35,25 @@ Blender (Windows)                              WSL Ubuntu
 - The solved field comes back as an OpenVDB volume (**WT Flow**); particles are advected
   through it and **WT Slice** shows speed or Cp on a movable plane.
 
+## Animating the result
+
+The 3D solve is steady (simpleFoam): there is one flow field and it does not change in time. The
+animation only moves the viewpoint through that field. **Animate slice** sweeps WT Slice over
+plus/minus 1 L about the body along X, Y or Z (192 frames, ping-pong, one keyframe per frame);
+every frame samples the same solved field at the plane's true position, nothing is interpolated
+in the data. The label above the slice prints its position in metres and in L, and the legend
+reads the same range inputs as the slice, so the two cannot disagree. Cp = (p - p_inf) / (0.5 rho
+U_inf^2), with p_inf the area-weighted mean static pressure on the inlet patch; the diverging ramp
+puts Cp = 0 on the neutral grey, -1 (blue) and +1 (red, the incompressible stagnation limit) at
+the ends, clamped beyond. The slice stops about one voxel (5 cm) off the body, on purpose.
+
+WT Smoke shows the same steady field as particles carried by its velocity (midpoint rule through
+WT Flow). In solved mode there is no surface slide or push back; particles that stall at the wall
+(sampled speed below 2 % of U_inf) are removed. On the 2 m cube (v0.5.0) no particle entered the
+body over 192 frames and smoke paths stay within 0.06 voxel of an RK4 streamline over 1 L
+(`validation/anim_ab_v2512.json`). Smoke paths are streamlines of a steady field, not a
+time-resolved wake: vortex shedding is not in the data.
+
 ## Install
 
 1. WSL: `wsl --install -d Ubuntu-24.04`, then in Ubuntu install OpenFOAM (see FIX_PLAN step 0
