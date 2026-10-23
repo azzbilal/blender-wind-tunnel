@@ -3,67 +3,74 @@
 Current state and the NEXT prompt only. Every earlier entry, including the 2026-10-22 "ANIMATION A+B
 closed" entry that this one supersedes, is kept verbatim in `docs/archive/session_log_2026-10.md`.
 
-## 2026-10-23: TRANSIENT T1 Stages 0 to 2 done (gate, verify, grill), stopped before Stage 3 (token budget)
+## 2026-10-24: TRANSIENT T1 closed (Stages 3 to 6), add-on 0.6.0
 
 ### Done
-- Stage 0 (commit 661bbbd): `docs/reviews/anim_ab_review.md` has 9 PASS, 0 FAIL. Review O1 closed:
-  the particles-inside-cube count is committed as `tools/audit/anim_inside.py` (headless Blender,
-  `FIELD.npz FRAMES [OUT.json]`); recount on field.npz sha1 5868c18e reproduces 2477893
-  particle-frames, 0 inside, 19571 alive max. `validation/anim_ab_v2512.json` now states that the
-  recorded 0.73 mm is the per-axis (Chebyshev) gap, not the straight-line distance (0.98 mm).
-- Stage 1: tests 80 run OK (3 expected failures); Blender MCP reachable (5.2.0 LTS, only "Scene");
-  add-on 0.5.0 in the repo, the deployed copy and the live Blender.
-- Stage 2 grill, locked in `docs/reference/transient_t1_spec.md` (commits af68d4c, 24c5ebb):
+- Stage 3 TDD (red b2eea87, green 294d226 and 598c4e1): `case3d.write_transient_case` (pimpleFoam per
+  the spec, potentialFoam start on a fresh copy only, ASCII writes); new pure `wind_tunnel/transient.py`
+  (frame k at t = k/60 s matched by time with tolerance, VDB sequence, plain smoke inputs, continuity /
+  Cd window / St maths); `export_field.py --frames` (U and p gathered from `processor*/<t>` through
+  `cellProcAddressing`, no reconstructPar; mask and IDW weights once; forked pool); `viz3d`: VDB
+  sequence load (the original volume is unloaded, a load on it looks for flow_0000), plain smoke with a
+  Substeps repeat zone and streaks, label with t and t U/L, `build_transient`. Headless
+  `tools/audit/t1_frames_check.py` passes. Bilal's addition 1: 50-step parallel potentialFoam start clean.
+- Stage 4 (632e56f to 428767d): full run `~/wind_tunnel/_t1/Cube`, record `validation/transient_t1_v2512.json`:
 
-| Q | Decision |
+| Quantity | Result |
 |---|---|
-| Q1 start | impulsive start from the potentialFoam field (exact t = 0+ solution), k 0.06, omega 400 uniform; mesh copied from `_anim/Cube` (359618 cells), no re-mesh |
-| Q2 time | 2 s (20 L/U), 120 frames at 1/60 s, frame k at t = k/60 s, t U/L = k/6; 5 s video at 24 fps |
-| Q2 St reference | none found for a free-stream cube near Re 2.7e6; nearest Klotz et al. 2014 JFM 750, St 0.125 at Re <= 390 (other regime) |
-| Q3 solver | pimpleFoam SST, backward, maxCo 1, 1 outer / 2 correctors, steady spatial schemes, writeObjects U p every 1/60 s, full write every 0.5 s, forceCoeffs every step |
-| Q3 cost (measured) | A (chosen) 0.48 s/step, dt 6.5e-4 s, about 3070 steps, about 25 min; B (Co 4, 3 outer) 0.94 s/step, about 13 min |
-| Q4 gates | Cd mean 1.0 to 2.0 s vs steady 1.1498 (report); St vs Klotz or "not measurable" (report); continuity error <= 1e-6 every frame (FAIL); 0 particles inside (FAIL) |
-| Q5 | issue i (white smoke, fewer particles, short trails) in T1; issue h deferred |
+| Run | 2564 steps, solve 1346 s (22.4 min), dt 6.3e-4 to 8.3e-4 s, Courant max 1.24 after step 1 |
+| Gate 3 continuity, 120 frames | max 1.95e-12 (frame 45), limit 1e-6: PASS |
+| Gate 4 particles (shipped render: sheet, 12 fps) | 130934 particle-frames, 0 inside, closest 1.15 mm: PASS |
+| Gate 1 Cd mean 1 to 2 s / 0.5 to 1 s | 1.1243 / 0.9208; steady 1.1498 same mesh (-2.2 %); Cd(2 s) 1.127 |
+| Gate 2 St | not measurable: Cs, Cl oscillate to 0.07 at 1.0 to 1.6 s then decay below 0.008 (no sustained shedding) |
+| Cp min/max, frames 1 / 12 / 45 / 120 | -4.24/+1.159, -2.11/+1.023, -1.39/+1.016, -0.73/+1.026 (steady -0.68/+1.024) |
 
-- Cost test cases: `~/wind_tunnel/_t1/cost_A`, `cost_B` (390 MB, 25 steps each, deletable).
-  Script `tools/audit/t1_costtest.sh` holds the exact controlDict, fvSchemes edits and fvSolution
-  used; the Stage 3 case writer should reproduce them. Early-transient numbers seen (not results):
-  Cd 1.78 at t = 0.015 s (A), 1.45 at t = 0.058 s (B), the impulsive-start transient.
+- HIL round (Bilal): thin charcoal streaks, release sheet |y| <= 0.05 L, 12 fps (10 s video, 1/60 s of
+  flow per frame). MP4 `renders/transient_t1_cube.mp4`, frames and VDBs in `renders/t1_frames` (ignored).
+- Stage 5 (aa121a3): 0.6.0 in both places, README "Time-resolved flow", tests 104 OK (3 expected
+  failures), deployed, headless smoke check ok; WT_T1 and every WT datablock removed from the live
+  Blender after checking Bilal's "Scene" unchanged; add-on handler restored, 0.6.0 loaded live.
+
+### Decisions and deviations (all in `docs/reference/transient_t1_spec.md`, Stage 3 and 4 notes)
+- ASCII writes instead of binary (reuses the tested readers). Field held at frame k through the smoke
+  step k-1 to k. The St gate needs a sustained oscillation (last 0.25 s spread >= 25 % of the window's);
+  the period count alone said "measured" for a decaying transient. Early-frame Cp explained by the
+  impulsive start and confirmed by its relaxation (Bilal's note).
 
 ### Open issues
-- c (step 1 review): inlet non-uniformity, stagnation line enters about 1.031 q; FIX_PLAN step 4.
-- d: concave-edge limit of the preview push back, recorded, not solved.
-- f: handler hides slice, legend and label unless the field is the Test Object's (by design).
-- g: WT Legend and WT Label face -Y; for X and Z sweeps they are not turned.
-- h: section view (hide body and smoke on the camera side of the slice), deferred by Q5.
-- Review O2 (logged, open): the 7 intermediate Cp ramp stops are our Msh interpolation, not yet
-  compared with Moreland's published CoolWarm table.
-- Review O3 (logged, process): commit the red test separately from the fix when practical.
-- `~/wind_tunnel/_anim` must stay until T1 closes (T1 copies its mesh; Cd compares on the same mesh).
+- c, d, g, h as before (inlet non-uniformity; preview push back at concave edges; legend and label
+  face -Y; section view).
+- f, extended: the add-on has no load path for a time-resolved field; WT_T1 needs the Test Object
+  handler suspended (`tools/audit/t1_scene.py`). Panel integration is a later slice.
+- j (new): URANS on this mesh does not sustain shedding; whether a finer mesh or DES would is untested.
+- Review O2 (Moreland intermediates) still open.
+- Disk: `~/wind_tunnel/_t1/Cube` 5.4 GB and `~/wind_tunnel/_anim` stay until the T1 review passes;
+  `renders/t1_frames` (2.7 GB plus VDBs) is local scratch, regenerable.
 
-### NEXT PROMPT (TRANSIENT T1, Stage 3 onward, fresh session)
-Continue `docs/prompts/transient_t1.md` from STAGE 3. Stages 0 to 2 are done; do not redo them.
-CONTEXT TO LOAD: CLAUDE.md; this SESSION_LOG.md entry; `docs/reference/transient_t1_spec.md` (the
-locked answers, take as given); `tools/audit/t1_costtest.sh` (the dictionaries that ran);
-`tools/audit/anim_inside.py`; then only the functions you change (grep): in `wind_tunnel/case3d.py`
-the controlDict, fvSchemes, fvSolution writers and the Allrun builder; `wind_tunnel/export_field.py`
-(frame export, solid mask once); `wind_tunnel/anim.py`; in `wind_tunnel/viz3d.py` `write_vdb`,
-`load_volume`, `build_slice`, `build_smoke`, `build_label`/label tree.
-Facts established: the table above; v2512 `postProcessing/forceCoeffs/0/coefficient.dat` columns are Time, Cd, Cd(f), Cd(r), Cl, Cl(f), Cl(r), CmPitch, CmRoll, CmYaw, Cs, Cs(f), Cs(r) (liftDir +Z, dragDir +X), so read the Q4 signals by header name, not position; v2512 function objects with adjustableRunTime shorten deltaT
-to hit their write times; mpirun needs `--oversubscribe` for 24 ranks (as case3d does).
-STAGE 3 TDD (red commit, then green): pure transient case writer per the spec; frame index to
-physical time mapping (t = k/60 s, t U/L = k/6); VDB sequence naming and loading; issue i smoke
-inputs; headless Blender check that the slice samples the frame-matching VDB.
-STAGE 4: re-run the 20-step cost test with the Stage 3 writer and STOP with the estimate before the
-full run (Bilal approves anything over 30 min); full run in `~/wind_tunnel/_t1/Cube`; parallel frame
-export (16 to 24 processes, solid mask once); scene WT_T1 through the MCP (fixed WT Slice y = 0 in
-Cp mode, smoke through the time-varying field, label with t and t U/L), render
-`renders/transient_t1_cube.mp4`; one HIL round. Stages 5 and 6 as the prompt says (version 0.6.0,
-README "Time-resolved flow", REVIEWER PROMPT to `docs/reviews/transient_t1_review.md`, NEXT PROMPT
-= the LATER PROMPT below).
+### REVIEWER PROMPT (fresh session; report to `docs/reviews/transient_t1_review.md`)
+Review slice TRANSIENT T1 (commits b2eea87..aa121a3 plus the handoff). Read only CLAUDE.md, this entry,
+`docs/reference/transient_t1_spec.md`, `docs/prompts/transient_t1.md` and the code you check.
+Facts established, do not re-derive: the table above; v2512 forceCoeffs columns by header name; writeObjects
+with adjustableRunTime lands writes on frame times; Blender volume sequence: scene frame k loads file k with
+frame_start 1, offset 0.
+Check, each PASS/FAIL with evidence:
+1. The case text matches spec Q3 (`case3d.transient_*`; `~/wind_tunnel/_t1/Cube/system`), the only
+   intended differences from the steady schemes are backward and no `bounded`.
+2. Gate 3: re-parse `~/wind_tunnel/_t1/Cube/log.pimpleFoam` independently of `transient.py` and confirm
+   120 frames, max 1.95e-12.
+3. Gate 1: recompute the 1 to 2 s Cd mean from `postProcessing/forceCoeffs/0/coefficient.dat` with your own
+   trapezoid code (expect 1.1243).
+4. Gate 2: plot or tabulate Cs and Cl over 0.5 to 2 s and judge whether "no sustained shedding" is right;
+   check the tail-spread rule in `tools/audit/t1_gates.py` is stated in the spec.
+5. Frame export: for one frame, compare a few voxels of `frames/flow_0060.npz` with an IDW you compute from
+   a `reconstructPar -time` of that frame (on a copy), within 1e-6 relative.
+6. Gate 4: re-run `tools/audit/anim_inside.py -- renders/t1_frames 120` (12 fps): 0 inside.
+7. `tools/audit/t1_frames_check.py` and `tools/blender_smoke.py` pass headless; tests 104 OK.
+8. README "Time-resolved flow" claims nothing beyond the record (no "validated", no St).
+9. Bilal's live Blender was left with only his own data (ask him; do not open his scenes).
 RULES: no sudo, no em dashes, asterisk terms plus glossary, never "validated" without a cited reference.
 
-### LATER PROMPT (FIX_PLAN step 3, wall mesh and y+; run after TRANSIENT T1 unless Bilal says otherwise)
+### NEXT PROMPT (FIX_PLAN step 3, wall mesh and y+; after the T1 review has no open FAIL)
 Slice: FIX_PLAN step 3, wall treatment and surface resolution. Solver-side (case3d), so every
 number is checked against OpenFOAM's definitions and a cited reference, and recorded in
 `validation/` with date, mesh size and iteration count. Write the full prompt to
