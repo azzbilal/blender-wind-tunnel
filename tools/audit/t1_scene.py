@@ -139,4 +139,9 @@ def cleanup():
             d = coll.get(n)
             if d is not None and d.users == 0:
                 coll.remove(d)
+    # WT meshes, node groups and the volume first; their materials lose their last user with them.
+    for coll in (bpy.data.meshes, bpy.data.node_groups, bpy.data.volumes, bpy.data.materials):
+        for d in list(coll):
+            if d.name.startswith("WT ") and d.users == 0:
+                coll.remove(d)
     restore_handler()

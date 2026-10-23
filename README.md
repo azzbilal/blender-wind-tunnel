@@ -54,6 +54,41 @@ body over 192 frames and smoke paths stay within 0.06 voxel of an RK4 streamline
 (`validation/anim_ab_v2512.json`). Smoke paths are streamlines of a steady field, not a
 time-resolved wake: vortex shedding is not in the data.
 
+## Time-resolved flow
+
+v0.6.0 adds a transient run (TRANSIENT T1, spec `docs/reference/transient_t1_spec.md`): pimpleFoam
+with the same k-omega SST model and spatial schemes as the steady case, second-order backward time
+stepping at a maximum Courant number of 1, started impulsively from the potential flow
+(potentialFoam) on the mesh of the solved steady cube (2 m, 20 m/s, Re 2.7e6, 359618 cells). U and p
+are written every 1/60 s for 2 s (20 flow-throughs L/U); every written time becomes one frame, an
+OpenVDB file in a sequence, so scene frame k shows flow time k/60 s. WT Slice stays fixed at y = 0 in
+Cp mode, the label prints t and t U/L, and the smoke (thin charcoal streaks released in a sheet within
+0.05 L of the slice plane) advances exactly 1/60 s of flow per frame through the time-varying field.
+Video `renders/transient_t1_cube.mp4`: 120 frames at 12 fps, so 10 s of video for 2 s of flow.
+
+What the run shows, and what it does not (`validation/transient_t1_v2512.json`, 2026-10-24):
+
+- The start-up: the starting vortex pair leaves the edges and the recirculation behind the cube
+  grows and settles. Cp near the edges is far below the steady values at first (-4.24 at t = 1/60 s,
+  the potential-flow start at sharp edges) and relaxes to -0.73 / +1.03 by t = 2 s (steady field:
+  -0.68 / +1.02).
+- No sustained vortex shedding. The side force oscillates between t = 1.0 and 1.6 s and then decays;
+  after 1.7 s |Cs|, |Cl| < 0.008. No Strouhal number is reported. The only free-stream cube reference
+  found (Klotz et al. 2014, St 0.125) is for Re <= 390, a different regime.
+- Cd averaged over 1 to 2 s is 1.124, 2.2 % below the steady 1.150 on the same mesh. This compares two
+  models, it is not a validation; neither number is checked against experiment yet (FIX_PLAN steps 3
+  and 4).
+- Mass conservation: the time step continuity error is at most 1.95e-12 at every frame (gate 1e-6).
+  No smoke particle entered the cube in 130934 particle-frames.
+
+Limits, plainly: this is URANS, so turbulence is modelled, not resolved; only unsteadiness much
+slower than the turbulence can appear, and on this coarse mesh with wall functions the solution
+settles toward the steady state. A finer mesh or a scale-resolving model (DES or LES) might shed;
+that has not been tested. The frames are interpolated onto a 5 cm grid, so small vortices are
+smoothed. The transient run is not yet in the panel: it is driven by `case3d.write_transient_case`,
+`export_field.py --frames`, `viz3d.build_transient` and the scripts in `tools/audit/` (`t1_gates.py`,
+`t1_scene.py`, `anim_inside.py`, `t1_frames_check.py`).
+
 ## Install
 
 1. WSL: `wsl --install -d Ubuntu-24.04`, then in Ubuntu install OpenFOAM (see FIX_PLAN step 0
