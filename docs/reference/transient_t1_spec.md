@@ -116,3 +116,9 @@ Only 3 and 4 can FAIL; 1 and 2 are reports.
   Final-corrector sum local max 2.8e-12 over 50 steps, frame 1 1.4e-12. Cost 0.522 s/step (steps 10
   to 50), dt about 6.3e-4 s, so about 3200 steps and about 28 min of solve for 2 s. Cd 1.62 at
   t = 0.031 s (impulsive-start transient, not a result).
+- **Early-frame Cp (Bilal, 2026-10-24)**: frame 1 (t = 1/60 s, t U/L = 0.17) has Cp -4.24 to +1.16
+  against -0.68 to +1.02 for the steady field on the same mesh and grid. Expected from the impulsive
+  start: the potential-flow start has very high speed (strong suction) at the cube's sharp edges, and
+  while the flow accelerates the unsteady Bernoulli term -rho dphi/dt adds to the stagnation pressure,
+  so Cp > 1 is possible. To be confirmed, not assumed: Cp must relax toward the steady range in the
+  1 to 2 s window; the frame Cp min/max over time go into `validation/transient_t1_v2512.json`.
