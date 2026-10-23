@@ -2,6 +2,7 @@
 
     "/c/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup \
         --python-exit-code 1 --python tools/audit/anim_inside.py -- FIELD.npz FRAMES [OUT.json]
+        ... -- FRAMES_DIR FRAMES [OUT.json]      (TRANSIENT T1: flow_0001.npz .. as a VDB sequence)
 
 Builds WT Flow from FIELD.npz and the shipped WT Smoke tree in solved mode (Use Field on, no
 slide, no push back, still rule kept) on a 2 m cube at the origin, 24 fps, then plays frames
@@ -13,6 +14,8 @@ the particles outside it:
   - min_gap_euclidean_m: straight-line distance to the box surface, |max(|x_i| - 1, 0)|;
   - min_gap_chebyshev_m: per-axis gap, max over axes of (|x_i| - 1). For a point outside an
     axis-aligned box it is at most the Euclidean distance.
+With a frames directory (TRANSIENT T1 Q4 gate 4) the scene is viz3d.build_transient's: WT Flow as a
+VDB sequence (scene frame k = flow frame k), plain smoke with substeps, as rendered.
 ANIMATION A+B record: 2477893 particle-frames, 0 inside, Chebyshev 0.73 mm, Euclidean 0.98 mm
 (docs/reviews/anim_ab_review.md item 3, validation/anim_ab_v2512.json).
 """
@@ -43,16 +46,21 @@ if wt._on_depsgraph in hs:
 for ob in list(bpy.data.objects):
     bpy.data.objects.remove(ob)
 
-tmp = Path(tempfile.mkdtemp())
-viz3d.write_vdb(field, tmp / "flow.vdb")
-viz3d.load_volume(tmp / "flow.vdb")
 bpy.ops.mesh.primitive_cube_add(size=2.0, location=(0, 0, 0))
 cube = bpy.context.active_object
 cube.name = "InsideCube"
 scene = bpy.context.scene
 scene.render.fps, scene.render.fps_base = 24, 1.0
 scene.frame_start, scene.frame_end = 1, frames
-smoke = viz3d.build_smoke(cube, 2.0, 20.0, 24, use_field=True)
+if field.is_dir():
+    voxel = float(np.load(field / "flow_0001.npz")["voxel"])
+    viz3d.build_transient(field, cube, frames, 24, 2.0, 20.0, voxel)
+    smoke = bpy.data.objects[viz3d.SMOKE]
+else:
+    tmp = Path(tempfile.mkdtemp())
+    viz3d.write_vdb(field, tmp / "flow.vdb")
+    viz3d.load_volume(tmp / "flow.vdb")
+    smoke = viz3d.build_smoke(cube, 2.0, 20.0, 24, use_field=True)
 mod = smoke.modifiers["Wind Tunnel"]
 tree = mod.node_group
 gi = next(n for n in tree.nodes if n.bl_idname == "NodeGroupInput")
