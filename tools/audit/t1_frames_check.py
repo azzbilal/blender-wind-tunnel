@@ -10,7 +10,7 @@ sequence by viz3d.build_transient, exactly as the T1 scene is built. Checks:
      frame 5 (past the sequence, CLIP) it keeps no vertex;
   2. WT Smoke (plain inputs, Substeps > 1) moves particles U / 60 = 0.3333 m per scene frame: the
      distinct x positions at frame 4 are spaced by that step (one CFD frame interval per scene frame);
-  3. each streak is |v| Trail = 0.1 L long and points along +X, and particles start within +-0.05 L of
+  3. each streak is |v| Trail = 0.3 L long and points along +X, and particles start within +-0.05 L of
      y = 0 (the sheet in the slice plane).
 Prints T1CHECK {json} and exits 1 on any failure.
 """
@@ -87,8 +87,8 @@ dirs = np.array([tuple(m.col[0].xyz.normalized()) for m in inst])
 step_ok = len(xs) >= 3 and np.allclose(steps, U / 60, atol=2e-4)
 if not step_ok:
     fails.append(f"smoke x positions {xs.tolist()} not spaced by U/60 = {U / 60:.4f}")
-if not np.allclose(lengths, 0.1 * L, rtol=1e-3):
-    fails.append(f"streak lengths {lengths.min():.5f}..{lengths.max():.5f}, expected {0.1 * L}")
+if not np.allclose(lengths, 0.3 * L, rtol=1e-3):
+    fails.append(f"streak lengths {lengths.min():.5f}..{lengths.max():.5f}, expected {0.3 * L}")
 if not np.allclose(dirs, [1.0, 0.0, 0.0], atol=1e-4):
     fails.append("streaks not along +X")
 y = np.array([m.translation[1] for m in inst])

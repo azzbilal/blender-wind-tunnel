@@ -62,8 +62,8 @@ stepping at a maximum Courant number of 1, started impulsively from the potentia
 (potentialFoam) on the mesh of the solved steady cube (2 m, 20 m/s, Re 2.7e6, 359618 cells). U and p
 are written every 1/60 s for 2 s (20 flow-throughs L/U); every written time becomes one frame, an
 OpenVDB file in a sequence, so scene frame k shows flow time k/60 s. WT Slice stays fixed at y = 0 in
-Cp mode, the label prints t and t U/L, and the smoke (thin charcoal streaks released in a sheet within
-0.05 L of the slice plane) advances exactly 1/60 s of flow per frame through the time-varying field.
+Cp mode, the label prints t and t U/L, and the smoke (charcoal streaks 0.3 L long at U_inf, 60 a frame,
+released in a sheet within 0.05 L of the slice plane) advances exactly 1/60 s of flow per frame through the time-varying field.
 Video `renders/transient_t1_cube.mp4`: 120 frames at 12 fps, so 10 s of video for 2 s of flow.
 
 What the run shows, and what it does not (`validation/transient_t1_v2512.json`, 2026-10-24):
@@ -79,7 +79,9 @@ What the run shows, and what it does not (`validation/transient_t1_v2512.json`, 
   models, it is not a validation; neither number is checked against experiment yet (FIX_PLAN steps 3
   and 4).
 - Mass conservation: the time step continuity error is at most 1.95e-12 at every frame (gate 1e-6).
-  No smoke particle entered the cube in 130934 particle-frames.
+  No smoke particle entered the cube in 196334 particle-frames (v0.6.1). The test is on particle
+  centres: a streak (radius L/160) drawn next to the top face can cut a few mm into the cube; the
+  front face hides that from the T1 camera.
 
 Limits, plainly: this is URANS, so turbulence is modelled, not resolved; only unsteadiness much
 slower than the turbulence can appear, and on this coarse mesh with wall functions the solution
@@ -87,7 +89,9 @@ settles toward the steady state. A finer mesh or a scale-resolving model (DES or
 that has not been tested. The frames are interpolated onto a 5 cm grid, so small vortices are
 smoothed. The transient run is not yet in the panel: it is driven by `case3d.write_transient_case`,
 `export_field.py --frames`, `viz3d.build_transient` and the scripts in `tools/audit/` (`t1_gates.py`,
-`t1_scene.py`, `anim_inside.py`, `t1_frames_check.py`).
+`t1_scene.py`, `anim_inside.py`, `t1_frames_check.py`, `t1_visibility.py`). An unbaked Simulation
+Zone moves only when frames are played in order and a render reads only that cache, so
+`t1_scene.render()` plays frames 1 to 120 before it renders.
 
 ## Install
 

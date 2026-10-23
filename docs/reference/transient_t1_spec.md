@@ -138,3 +138,19 @@ Only 3 and 4 can FAIL; 1 and 2 are reports.
   in a sheet |y| <= 0.05 L at 40 a frame (integration unchanged), video 12 fps (120 frames, 10 s;
   Time Scale 12/60 keeps 1/60 s of flow per frame, label unchanged). Gate 4 re-run on the shipped
   render: 130934 particle-frames, 0 inside, closest 1.15 mm (Chebyshev 0.99 mm), PASS.
+- **0.6.1 polish (Bilal, 2026-10-24)**: in the 0.6.0 video the streaks were visible only at the release.
+  Root cause: an unbaked Simulation Zone advances only when frames are played in order and a render
+  only reads that cache; `t1_scene.render()` rendered without playing, so every frame showed just the
+  particles born in it. `t1_scene.play()` now runs frames 1..120 before any render. Second cause: radius
+  L/600 drew 0.8 px wide streaks (8.44 mm per pixel at y = 0 for the T1 camera: 15 m, 50 mm lens,
+  36 mm sensor, 1280 px). Now radius L/160 (3.0 px), trail 0.3 L at U_inf, 60 a frame (40 traced the
+  shear layers sparsely, 120 merged them into bands that hide Cp); sheet, integration and colour
+  unchanged. Visibility check `tools/audit/t1_visibility.py` (threshold over >= 400 px, wake >= 1000 px
+  at frames 30, 60, 120): 0.6.0 as shipped 0 px everywhere (FAIL); 0.6.1 over 17033 / 17479 / 13376,
+  wake 5973 / 3670 / 5452, no-smoke baseline 0 (PASS). Gate 4 re-run: 196334 particle-frames, 0 inside,
+  closest 1.15 mm (Chebyshev 0.99 mm), PASS. Known display limit: gate 4 tests particle centres, so a
+  12.5 mm streak drawn 1.15 mm from the top face cuts into the cube geometrically; the -Y face hides it
+  from the T1 camera. `t1_scene.build()` now also switches Auto solve off on every scene while WT_T1
+  exists and `cleanup()` restores each scene's value (the add-on finds WT Smoke by global name but reads
+  Auto solve from the current scene; this once launched an unrequested steady solve of T1Cube,
+  `~/wind_tunnel/3d_T1Cube`, deleted).

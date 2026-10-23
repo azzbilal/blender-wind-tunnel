@@ -55,8 +55,9 @@ def time_label(k, U, L, fps=FPS_CFD):
 
 
 def plain_smoke_inputs(L, U, scene_fps, voxel, fps=FPS_CFD):
-    """Smoke tree inputs for a time-resolved field (open issue i, as changed at the T1 HIL: thin charcoal
-    streaks released in a sheet within +-0.05 L of the slice plane y = centre, 40 a frame). Particles
+    """Smoke tree inputs for a time-resolved field (open issue i, as changed at the T1 HIL: charcoal
+    streaks released in a sheet within +-0.05 L of the slice plane y = centre; 0.6.1: 60 a frame, 0.3 L
+    long, radius L/160 = 3.0 px wide on the T1 camera, tools/audit/t1_visibility.py). Particles
     move by exactly one CFD frame interval (1/fps s) per scene frame, so they keep pace with the field
     at any video frame rate; the step is split into substeps of at most one voxel at 1.5 U_inf."""
     sheet = 0.05 * L
@@ -66,10 +67,10 @@ def plain_smoke_inputs(L, U, scene_fps, voxel, fps=FPS_CFD):
         "Time Scale": scene_fps / fps,                         # Delta Time (1 / scene_fps) * this = 1 / fps
         "Substeps": max(1, math.ceil(1.5 * U / fps / voxel - 1e-9)),
         "Sheet": sheet,                                          # half thickness of the release plane in y
-        "Rate": 40.0 / (1.4 * L * 2 * sheet),                   # per m2 of the release plane: 40 a frame
+        "Rate": 60.0 / (1.4 * L * 2 * sheet),                   # per m2 of the release plane: 60 a frame
         "Lifetime": float(math.ceil(1.5 * 4.25 * L * fps / U)),  # frames: the 4.25 L grid at 1 / 1.5 of U_inf
-        "Trail": 0.1 * L / U,                                   # s: streak length |v| Trail, 0.1 L at U_inf
-        "Radius": L / 600.0,
+        "Trail": 0.3 * L / U,                                   # s: streak length |v| Trail, 0.3 L at U_inf
+        "Radius": L / 160.0,                                    # 2 m cube: 25 mm wide, 3.0 px at 8.44 mm/px
     }
 
 

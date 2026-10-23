@@ -2,11 +2,18 @@
 
     exec(open(r"<repo>/tools/audit/t1_scene.py").read()); build(FRAMES_DIR); render(OUT_MP4)
 
+render() plays frames 1..120 in order first (play()): the render reads the Simulation Zone cache only.
+
 build(): a new scene WT_T1 (bpy.data.scenes.new, made the window's scene), a 2 m cube "T1Cube" at the
 origin, viz3d.build_transient (WT Flow as a VDB sequence, WT Slice at y = 0 in Cp mode, legend, label
 with t and t U/L, plain smoke), a camera on -Y looking at the slice, a sun, Standard view. The add-on's
 Test Object handler and 1 s watch timer are suspended while WT_T1 exists (the T1 field is no Test
-Object's solved field, open issue f); cleanup() restores them and removes everything WT_T1 made.
+Object's solved field, open issue f), and Auto solve is switched off on EVERY scene: the add-on finds
+WT Smoke (and so the Test Object T1Cube) by its global name but reads Auto solve from whichever scene
+is current, so any scene with it on could start a steady solve of T1Cube (this happened once, the
+unrequested ~/wind_tunnel/3d_T1Cube of 2026-10-24). The previous values are kept in
+bpy.app.driver_namespace (session only, never saved in the .blend). cleanup() removes everything WT_T1
+made, then restores Auto solve, then the handler and timer.
 """
 import math
 import sys
@@ -42,12 +49,39 @@ def restore_handler():
         bpy.app.timers.register(wt._watch, first_interval=1.0, persistent=True)
 
 
+AUTO_KEY = "wt_t1_auto_resolve"          # bpy.app.driver_namespace: {scene name: Auto solve before build}
+
+
+def auto_solve_off():
+    """Auto solve off on every scene, first values kept (a second build keeps the originals)."""
+    saved = bpy.app.driver_namespace.setdefault(AUTO_KEY, {})
+    for s in bpy.data.scenes:
+        p = getattr(s, "wind_tunnel", None)          # absent when the add-on is not registered (headless)
+        if p is None:
+            continue
+        saved.setdefault(s.name, bool(p.auto_resolve))
+        if p.auto_resolve:
+            p.auto_resolve = False
+
+
+def auto_solve_restore():
+    saved = bpy.app.driver_namespace.pop(AUTO_KEY, {})
+    for name, v in saved.items():
+        s = bpy.data.scenes.get(name)
+        p = getattr(s, "wind_tunnel", None) if s is not None else None
+        if p is not None and p.auto_resolve != v:
+            p.auto_resolve = v
+
+
 def build(frames_dir):
     from wind_tunnel import viz3d
     import numpy as np
     suspend_handler()
+    auto_solve_off()
     sc = bpy.data.scenes.get(SCENE) or bpy.data.scenes.new(SCENE)
-    bpy.context.window.scene = sc
+    if bpy.context.window is not None:           # None in headless Blender (tools/audit/t1_visibility.py)
+        bpy.context.window.scene = sc
+    auto_solve_off()                             # WT_T1 itself (new scenes default to Auto solve on)
     sc.render.fps, sc.render.fps_base = FPS, 1.0
     sc.frame_start, sc.frame_end = 1, N_FRAMES
     sc.render.resolution_x, sc.render.resolution_y = 1280, 720
@@ -104,8 +138,18 @@ def build(frames_dir):
     return {"grid_lo": [float(x) for x in lo], "grid_hi": [float(x) for x in hi], "voxel": voxel}
 
 
+def play(n=N_FRAMES):
+    """Plays frames 1..n in order. An unbaked Simulation Zone advances only in the scene's depsgraph and a
+    render only reads that cache: without this every rendered frame shows just the particles born in it
+    (the release column of the 0.6.0 video)."""
+    sc = bpy.data.scenes[SCENE]
+    for f in range(1, n + 1):
+        sc.frame_set(f)
+
+
 def render(out_mp4):
     sc = bpy.data.scenes[SCENE]
+    play()
     if hasattr(sc.render.image_settings, "media_type"):          # Blender 5: FFMPEG needs media type VIDEO
         sc.render.image_settings.media_type = "VIDEO"
     sc.render.image_settings.file_format = "FFMPEG"
@@ -113,17 +157,16 @@ def render(out_mp4):
     sc.render.ffmpeg.codec = "H264"
     sc.render.ffmpeg.constant_rate_factor = "HIGH"
     sc.render.filepath = str(out_mp4)
-    sc.frame_set(1)
     bpy.ops.render.render(animation=True, scene=SCENE)
     return str(out_mp4)
 
 
 def cleanup():
-    """Removes WT_T1 and every datablock it made, then restores the add-on handler and timer."""
+    """Removes WT_T1 and every datablock it made, then restores Auto solve, then the handler and timer."""
     from wind_tunnel import viz3d
     sc = bpy.data.scenes.get(SCENE)
     other = [s for s in bpy.data.scenes if s.name != SCENE]
-    if sc is not None and other:
+    if sc is not None and other and bpy.context.window is not None:
         bpy.context.window.scene = other[0]
     viz3d.remove_all()
     for name in ("T1Cube", "T1Cam", "T1Sun"):
@@ -144,4 +187,5 @@ def cleanup():
         for d in list(coll):
             if d.name.startswith("WT ") and d.users == 0:
                 coll.remove(d)
+    auto_solve_restore()
     restore_handler()

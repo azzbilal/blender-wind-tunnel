@@ -689,7 +689,7 @@
   "seconds": 13.9,
   "verdict": "PASS"
  },
- "gate4_particles": {
+ "gate4_particles_0_6_0": {
   "field": "renders/t1_frames (copy of ~/wind_tunnel/_t1/Cube/frames)",
   "frames": 120,
   "use_field": true,
@@ -703,7 +703,152 @@
   "seconds": 34.5,
   "scene_fps": 12,
   "release": "sheet |y| <= 0.05 L = 0.1 m, 40 a frame, radius L/600",
+  "verdict": "PASS",
+  "superseded": "0.6.1 (2026-10-24): 60 a frame, radius L/160, trail 0.3 L; see gate4_particles"
+ },
+ "gate4_particles": {
+  "field": "renders/t1_frames (copy of ~/wind_tunnel/_t1/Cube/frames)",
+  "frames": 120,
+  "use_field": true,
+  "use_field_nots": 1,
+  "particle_frames": 196334,
+  "inside_body_box_abs_lt_1m": 0,
+  "particles_alive_max": 2064,
+  "min_gap_euclidean_m": 0.0011539579914975181,
+  "min_gap_chebyshev_m": 0.0009911060333251953,
+  "first_inside": null,
+  "seconds": 10.2,
+  "scene_fps": 12,
+  "release": "sheet |y| <= 0.05 L = 0.1 m, 60 a frame, radius L/160 (12.5 mm), trail 0.3 L at U_inf (add-on 0.6.1)",
+  "date": "2026-10-24",
+  "note": "positional gate on particle centres; a drawn streak (radius 12.5 mm) near the closest centre (1.15 mm) cuts into the cube surface geometrically; the -Y face hides it from the T1 camera (display limit, not a particle inside)",
   "verdict": "PASS"
+ },
+ "visibility_0_6_1": {
+  "script": "tools/audit/t1_visibility.py (headless Blender, WT_T1 of t1_scene.py, frames played 1..120 in order then rendered)",
+  "date": "2026-10-24",
+  "camera": {
+   "distance_m": 15.0,
+   "lens_mm": 50.0,
+   "sensor_mm": 36.0,
+   "sensor_fit": "AUTO"
+  },
+  "mm_per_px_at_y0": 8.438,
+  "classifier": "sRGB max(R,G,B) <= 80 and max - min <= 16 (charcoal 48; every Cp colour has max >= 180)",
+  "regions": "y = 0 plane, inside the slice rectangle, outside the projected cube box (4 px margins); over: x in [-1, 1] m, |z| in [1.1 m, grid edge]; wake: x in [1.15 m, grid end], |z| <= 1 m",
+  "threshold_px": {
+   "over": 400,
+   "wake": 1000
+  },
+  "red_0_6_0_as_shipped": {
+   "render": "no play-through (0.6.0 t1_scene.render)",
+   "streak_px": {
+    "30": {
+     "over": 0,
+     "wake": 0
+    },
+    "60": {
+     "over": 0,
+     "wake": 0
+    },
+    "120": {
+     "over": 0,
+     "wake": 0
+    }
+   },
+   "verdict": "FAIL"
+  },
+  "red_0_6_0_streaks_with_play_through": {
+   "streak_px": {
+    "30": {
+     "over": 0,
+     "wake": 2
+    },
+    "60": {
+     "over": 3,
+     "wake": 0
+    },
+    "120": {
+     "over": 0,
+     "wake": 0
+    }
+   },
+   "verdict": "FAIL"
+  },
+  "trial_40_a_frame": {
+   "streak_px": {
+    "30": {
+     "over": 11800,
+     "wake": 3751
+    },
+    "60": {
+     "over": 12353,
+     "wake": 2523
+    },
+    "120": {
+     "over": 10061,
+     "wake": 3798
+    }
+   },
+   "verdict": "PASS"
+  },
+  "trial_120_a_frame": {
+   "streak_px": {
+    "30": {
+     "over": 25692,
+     "wake": 12278
+    },
+    "60": {
+     "over": 25527,
+     "wake": 7546
+    },
+    "120": {
+     "over": 20879,
+     "wake": 9495
+    }
+   },
+   "verdict": "PASS, rejected: shear layers merge into bands that hide Cp"
+  },
+  "green_0_6_1": {
+   "inputs": {
+    "Radius": 0.012500000186264515,
+    "Trail": 0.029999999329447746,
+    "Rate": 107.14286041259766,
+    "Sheet": 0.10000000149011612,
+    "Lifetime": 39.0,
+    "Substeps": 10
+   },
+   "streak_px": {
+    "30": {
+     "over": 17033,
+     "wake": 5973
+    },
+    "60": {
+     "over": 17479,
+     "wake": 3670
+    },
+    "120": {
+     "over": 13376,
+     "wake": 5452
+    }
+   },
+   "baseline_no_smoke_px": {
+    "30": {
+     "over": 0,
+     "wake": 0
+    },
+    "60": {
+     "over": 0,
+     "wake": 0
+    },
+    "120": {
+     "over": 0,
+     "wake": 0
+    }
+   },
+   "verdict": "PASS"
+  },
+  "root_cause": "an unbaked Simulation Zone advances only when frames are played in order and a render reads that cache; 0.6.0 rendered without playing, so each frame showed only the particles born in it; the 0.8 px streak width was a second, smaller cause"
  },
  "steady_export_regression": "refactored export_field.py on a copy of _anim/Cube t = 1831: field.npz bit-identical (7 keys), forces.json equal to forces_1831e_verdict2000.json (35 keys), 2026-10-24"
 }
