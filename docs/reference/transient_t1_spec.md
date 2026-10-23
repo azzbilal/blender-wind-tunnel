@@ -69,3 +69,27 @@ Locked in the Stage 2 grill (HIL, Bilal), 2026-10-23. Prompt: `docs/prompts/tran
   its step-25 value; Co max can move as the wake develops. Stage 4 re-measures before the full run.
 - Declined: B (3 fixed outer iterations are not converged per step, a splitting error not bounded
   without a second run) and CrankNicolson 0.9.
+
+## Q4 Honesty gates (record: `validation/transient_t1_v2512.json`)
+
+1. Cd: time average over the settled window t = 1.0 to 2.0 s (t U/L 10 to 20) from forceCoeffs,
+   reported next to steady gated Cd 1.1498 (same mesh). No target: two models compared, not a
+   validation. The 0.5 to 1.0 s mean is reported beside it as a settling indicator.
+2. Strouhal number: from the side-force coefficients (Cs about y and Cl about z) over the same window,
+   spectrum peak plus zero-crossing count, St = f L / U. Reported next to Klotz 2014 (0.125,
+   Re <= 390, a different regime, see Q2). Fewer than 2 full periods in the window: reported as
+   "not measurable", no number.
+3. Mass conservation: the time step continuity error (sum local) logged at every written frame
+   step; FAIL if any exceeds 1e-6 (cost test: about 1e-12).
+4. Particles: `tools/audit/anim_inside.py` extended to the VDB sequence; 0 particle-frames inside
+   the body box |x|, |y|, |z| < 1 m over all frames (target 0, FAIL otherwise). Gap reported as
+   Chebyshev and Euclidean.
+
+Only 3 and 4 can FAIL; 1 and 2 are reports.
+
+## Q5 Open issues h and i
+
+- i (smoke styling) is in T1: plain white smoke, fewer particles, short trails, so Cp on the slice is
+  the only colour code. Built as smoke tree inputs with tests in Stage 3, judged at the Stage 4 HIL.
+- h (section view, hide body and smoke on the camera side of the slice) stays open for a later slice
+  (needs a clipping design).
