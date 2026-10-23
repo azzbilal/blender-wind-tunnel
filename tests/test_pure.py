@@ -761,6 +761,234 @@ class Stop3D(unittest.TestCase):
             self.assertEqual(results.progress(Path(d)), (403, 0.0230))
 
 
+class Transient3D(unittest.TestCase):
+    """TRANSIENT T1 Stage 3: the pimpleFoam case text (docs/reference/transient_t1_spec.md Q1 and Q3)."""
+
+    SRC = "/home/bilal/wind_tunnel/_anim/Cube"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name) / "Cube"
+        self.s = case3d.Setup3D()
+        self.tr = case3d.Transient()
+        self.script = case3d.write_transient_case(self.root, self.SRC, self.s, self.tr, L=2.0, Aref=4.0)
+        self.cd = (self.root / "system/controlDict").read_text()
+        self.fvs = (self.root / "system/fvSolution").read_text()
+        self.allrun = self.script.read_text()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _entry(self, key, text=None):
+        return [ln.split()[1].rstrip(";") for ln in (text or self.cd).splitlines() if ln.split()[:1] == [key]]
+
+    def _fo(self, kind):
+        i = self.cd.index(f"type {kind};")
+        return self.cd[self.cd.rindex("{", 0, i):self.cd.index("}", i)]
+
+    def test_defaults_are_the_spec(self):
+        tr = case3d.Transient()
+        self.assertEqual((tr.end_time, tr.frames_per_s, tr.max_co, tr.n_outer, tr.n_corr, tr.full_write, tr.procs),
+                         (2.0, 60, 1.0, 1, 2, 0.5, 24))
+        self.assertIsNone(tr.steps)
+
+    def test_control_dict_time(self):
+        for key, val in (("application", "pimpleFoam"), ("startFrom", "latestTime"), ("stopAt", "endTime"),
+                         ("endTime", "2"), ("deltaT", "0.001"), ("adjustTimeStep", "yes"), ("maxCo", "1"),
+                         ("maxDeltaT", "1"), ("writeControl", "adjustableRunTime"), ("writeInterval", "0.5"),
+                         ("purgeWrite", "0"), ("writeFormat", "ascii"), ("timePrecision", "8")):
+            self.assertEqual(self._entry(key), [val], key)
+
+    def test_write_objects_every_frame(self):
+        fo = self._fo("writeObjects")
+        for txt in ("libs (utilityFunctionObjects);", "objects (U p);", "writeControl adjustableRunTime;"):
+            self.assertIn(txt, fo)
+        wi = [ln.split()[1].rstrip(";") for ln in fo.splitlines() if ln.split()[:1] == ["writeInterval"]]
+        self.assertAlmostEqual(float(wi[0]), 1 / 60, delta=1e-12)
+
+    def test_force_coeffs_every_step(self):
+        fo = self._fo("forceCoeffs")
+        for txt in ("libs (forces);", "patches (body);", "rho rhoInf;", "rhoInf 1.225;", "CofR (0 0 0);",
+                    "liftDir (0 0 1);", "dragDir (1 0 0);", "pitchAxis (0 1 0);", "magUInf 20;", "lRef 2;",
+                    "Aref 4;", "writeControl timeStep;", "writeInterval 1;"):
+            self.assertIn(txt, fo)
+
+    def test_schemes_are_the_steady_ones_with_backward(self):
+        steady = Path(self.tmp.name) / "steady"
+        case3d.write_system(steady, self.s)
+        st = (steady / "system/fvSchemes").read_text()
+        tr = (self.root / "system/fvSchemes").read_text()
+        self.assertNotIn("bounded", tr)
+        self.assertIn("ddtSchemes { default backward; }", tr)
+        self.assertEqual(tr, st.replace("default steadyState;", "default backward;").replace("bounded Gauss", "Gauss"))
+
+    def test_pimple_and_solvers(self):
+        pimple = self.fvs[self.fvs.index("PIMPLE"):self.fvs.index("potentialFlow")]
+        for key, val in (("momentumPredictor", "yes"), ("nOuterCorrectors", "1"), ("nCorrectors", "2"),
+                         ("nNonOrthogonalCorrectors", "1")):
+            self.assertEqual(self._entry(key, pimple), [val], key)
+        self.assertIn("pFinal { $p; relTol 0; }", self.fvs)
+        self.assertIn('"(U|k|omega)Final" { $U; relTol 0; }', self.fvs)
+        self.assertIn("potentialFlow { nNonOrthogonalCorrectors 5; }", self.fvs)
+        self.assertIn("relTol 0.01;", self.fvs[self.fvs.index("p "):self.fvs.index("pFinal")])
+        self.assertNotIn("SIMPLE", self.fvs)
+        self.assertNotIn("residualControl", self.fvs)
+
+    def test_allrun_copies_mesh_then_potential_then_pimple(self):
+        lines = self.allrun.splitlines()
+        at = lambda pat: [i for i, ln in enumerate(lines) if pat in ln]
+        self.assertIn(f'SRC="{self.SRC}"', self.allrun)
+        cp_mesh, pot, pim, exp = at("processor*/constant"), at("potentialFoam"), at("pimpleFoam"), at("--frames")
+        self.assertTrue(cp_mesh and pot and pim and exp)
+        self.assertLess(cp_mesh[0], pot[0])
+        self.assertLess(pot[0], pim[0])
+        self.assertLess(pim[-1], exp[0])
+        self.assertIn("mpirun -np 24 --oversubscribe potentialFoam -parallel -writep", self.allrun)
+        self.assertIn("mpirun -np 24 --oversubscribe pimpleFoam -parallel", self.allrun)
+
+    def test_allrun_refuses_to_restart_the_potential_start(self):
+        """potentialFoam overwrites processor*/0: the Allrun stops if any later time already exists."""
+        lines = self.allrun.splitlines()
+        guard = [i for i, ln in enumerate(lines) if "already has time steps" in ln]
+        pot = [i for i, ln in enumerate(lines) if "potentialFoam" in ln]
+        self.assertEqual(len(guard), 1)
+        self.assertLess(guard[0], pot[0])
+
+    def test_cost_mode_stops_after_n_steps_and_does_not_export(self):
+        root = Path(self.tmp.name) / "cost"
+        script = case3d.write_transient_case(root, self.SRC, self.s, case3d.Transient(steps=50), L=2.0, Aref=4.0)
+        cd = (root / "system/controlDict").read_text()
+        for key, val in (("stopAt", "nextWrite"), ("writeControl", "timeStep"), ("writeInterval", "50")):
+            self.assertEqual(self._entry(key, cd), [val], key)
+        self.assertIn("type writeObjects;", cd)
+        self.assertNotIn("--frames", script.read_text())
+
+
+class TransientPure(unittest.TestCase):
+    """TRANSIENT T1 Stage 3: frame index and physical time, VDB sequence, smoke inputs, Q4 gate maths."""
+
+    @classmethod
+    def setUpClass(cls):
+        global np
+        import numpy as np
+        cls.tr = importlib.import_module("wind_tunnel.transient")
+
+    def test_frame_time_and_flow_throughs(self):
+        self.assertEqual(self.tr.frame_time(30), 0.5)
+        self.assertEqual(self.tr.frame_time(120), 2.0)
+        self.assertAlmostEqual(self.tr.frame_tUL(6, 20.0, 2.0), 1.0)
+        self.assertAlmostEqual(self.tr.frame_tUL(120, 20.0, 2.0), 20.0)
+
+    def test_frame_from_time_dir_tolerant(self):
+        f = self.tr.frame_from_time
+        self.assertEqual(f("0.016666667"), 1)
+        self.assertEqual(f("0.033333333"), 2)
+        self.assertEqual(f("0.5"), 30)
+        self.assertEqual(f("2"), 120)
+        self.assertEqual(f("1.9999999"), 120)
+        self.assertIsNone(f("0"))                   # the potential start is not a frame
+        self.assertIsNone(f("0.0175"))              # a time step between frames
+        self.assertIsNone(f("constant"))
+
+    def test_vdb_names_and_sequence(self):
+        self.assertEqual(self.tr.frame_name(1, "vdb"), "flow_0001.vdb")
+        self.assertEqual(self.tr.frame_name(120, "npz"), "flow_0120.npz")
+        self.assertEqual(self.tr.vdb_sequence(120),
+                         {"is_sequence": True, "frame_start": 1, "frame_duration": 120, "frame_offset": 0,
+                          "sequence_mode": "CLIP"})
+
+    def test_time_label(self):
+        self.assertEqual(self.tr.time_label(30, 20.0, 2.0), "t = 0.500 s (t U/L = 5.00)")
+        self.assertEqual(self.tr.time_label(1, 20.0, 2.0), "t = 0.017 s (t U/L = 0.17)")
+
+    def test_plain_smoke_inputs(self):
+        L, U, fps, h = 2.0, 20.0, 24, 0.05
+        d = self.tr.plain_smoke_inputs(L, U, fps, h)
+        self.assertAlmostEqual(d["Time Scale"] * (1 / fps), 1 / 60)    # one CFD frame per scene frame
+        step = 1.5 * U / 60 / d["Substeps"]                              # 1.5 U_inf: fastest flow near the cube
+        self.assertLessEqual(step, h)
+        self.assertGreater(1.5 * U / 60 / (d["Substeps"] - 1), h)        # the fewest substeps that do it
+        self.assertAlmostEqual(d["Rate"] * (1.4 * L) ** 2, 40.0)        # 40 new particles a frame (was 150)
+        self.assertAlmostEqual(U * d["Trail"], 0.1 * L)                 # streak 0.1 L at U_inf
+        self.assertTrue(d["Plain"])
+        self.assertTrue(d["Use Field"])
+        self.assertGreaterEqual(d["Lifetime"] * U / 60, 4.25 * L)         # lives long enough to cross the grid
+
+    def test_frame_continuity_last_corrector_of_frame_steps(self):
+        log = ("Courant Number mean: 0.1 max: 0.9\ndeltaT = 0.0006\nTime = 0.0166\n"
+               "time step continuity errors : sum local = 1e-09, global = 1e-12, cumulative = 1e-12\n"
+               "time step continuity errors : sum local = 2e-11, global = 1e-13, cumulative = 1e-12\n"
+               "deltaT = 0.00006666\nTime = 0.016666667\n"
+               "time step continuity errors : sum local = 3e-09, global = 1e-12, cumulative = 1e-12\n"
+               "time step continuity errors : sum local = 4e-11, global = 1e-13, cumulative = 1e-12\n"
+               "ExecutionTime = 1 s\nTime = 0.0172\n"
+               "time step continuity errors : sum local = 5e-08, global = 1e-12, cumulative = 1e-12\n"
+               "time step continuity errors : sum local = 6e-10, global = 1e-13, cumulative = 1e-12\n"
+               "Time = 0.033333333\n"
+               "time step continuity errors : sum local = 7e-09, global = 1e-12, cumulative = 1e-12\n")
+        self.assertEqual(self.tr.frame_continuity(log), {1: 4e-11, 2: 7e-09})
+        self.assertEqual(self.tr.step_continuity(log)[-2], (0.0172, 6e-10))
+
+    def test_window_mean_is_time_weighted(self):
+        t = np.array([0.9, 1.0, 1.1, 1.5, 2.0])
+        cd = np.array([9.0, 1.0, 1.0, 3.0, 3.0])
+        # trapezoid on [1, 2]: 0.1 * 1 + 0.4 * 2 + 0.5 * 3 = 2.4
+        self.assertAlmostEqual(self.tr.window_mean(t, cd, 1.0, 2.0), 2.4)
+
+    def test_strouhal_from_side_force(self):
+        U, L = 20.0, 2.0
+        t = np.arange(0.0, 2.0, 6.5e-4)
+        cs = 0.3 * np.sin(2 * np.pi * 1.1 * t + 0.4)                     # St = 1.1 * 2 / 20 = 0.11
+        r = self.tr.strouhal(t, cs, U, L, 0.0, 2.0)
+        self.assertAlmostEqual(r["St_crossings"], 0.11, delta=0.002)
+        self.assertAlmostEqual(r["St_spectrum"], 0.11, delta=0.03)       # 2 s record: df = 0.5 Hz, St step 0.05
+        self.assertGreaterEqual(r["periods"], 2)
+        short = self.tr.strouhal(t, cs, U, L, 1.0, 2.0)                  # 1.1 periods in the window
+        self.assertIsNone(short["St_crossings"])
+        self.assertIsNone(short["St_spectrum"])
+        self.assertEqual(short["verdict"], "not measurable")
+
+
+class FrameExport(unittest.TestCase):
+    """TRANSIENT T1 Stage 3: frames from processor fields, interpolation weights computed once."""
+
+    @classmethod
+    def setUpClass(cls):
+        global np
+        import numpy as np
+        cls.ef = importlib.import_module("wind_tunnel.export_field")
+
+    def test_gather_cells_in_global_order(self):
+        parts = [(np.array([3, 0]), np.array([30.0, 0.0])), (np.array([1, 2]), np.array([10.0, 20.0]))]
+        np.testing.assert_array_equal(self.ef.gather_cells(parts, 4), [0.0, 10.0, 20.0, 30.0])
+        vec = [(np.array([1, 0]), np.array([[1.0, 1, 1], [0, 0, 0]]))]
+        np.testing.assert_array_equal(self.ef.gather_cells(vec, 2), [[0, 0, 0], [1, 1, 1]])
+
+    def test_gather_cells_must_cover_every_cell(self):
+        with self.assertRaises(ValueError):
+            self.ef.gather_cells([(np.array([0, 2]), np.array([1.0, 2.0]))], 3)
+
+    def test_idw_weights_cached_and_exact_at_a_centre(self):
+        cc = np.array([[0.0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1]])
+        q = np.array([[1.0, 0, 0], [0.3, 0.3, 0.3]])
+        idx, w = self.ef.idw_weights(cc, q, dtype=np.float32)
+        self.assertEqual((idx.dtype, w.dtype), (np.dtype(np.int32), np.dtype(np.float32)))
+        np.testing.assert_allclose(w.sum(axis=1), 1.0, rtol=1e-6)
+        vals = np.array([5.0, 7.0, 1.0, 2.0, 3.0])
+        self.assertAlmostEqual(float(self.ef.idw_apply(vals, idx, w)[0]), 7.0, places=5)
+        U = np.column_stack([vals, 2 * vals, 0 * vals])
+        np.testing.assert_allclose(self.ef.idw_apply(U, idx, w)[0], [7.0, 14.0, 0.0], rtol=1e-6)
+
+    def test_frame_dirs_are_matched_by_time(self):
+        with tempfile.TemporaryDirectory() as d:
+            p0 = Path(d) / "processor0"
+            for name in ("0", "0.016666667", "0.0175", "0.033333333", "0.5", "constant"):
+                (p0 / name).mkdir(parents=True)
+            for name in ("0.016666667", "0.033333333", "0.5"):
+                (p0 / name / "U").write_text("x")
+            self.assertEqual(self.ef.frame_dirs(Path(d)), {1: "0.016666667", 2: "0.033333333", 30: "0.5"})
+
+
 class Step0Check(unittest.TestCase):
     def test_nu_read_from_case(self):
         spec = importlib.util.spec_from_file_location("step0_check", REPO / "tools" / "audit" / "step0_check.py")
