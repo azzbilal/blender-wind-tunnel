@@ -19,7 +19,7 @@ can be redone):
 - `rev_gates.py` (WSL python3, imports neither `transient.py` nor `t1_gates.py`): raw parse of
   `log.pimpleFoam` and `coefficient.dat`, own trapezoid*, own zero-crossing count and 0.1 s bins.
 - `rev_frame.py`, `rev_frame2.py`, `rev_frame3.py` (WSL): frame 60 against `reconstructPar -time 1`
-  on a copy (`~/wind_tunnel/_review_t1`, 245 MB, deleted after this review).
+  on a copy (`~/wind_tunnel/_review_t1`, 245 MB, safe to delete).
 - Headless Blender 5.2 (factory startup, repo code): `anim_inside.py`, `t1_visibility.py` (shipped and
   red), `t1_autosolve_check.py`, `t1_frames_check.py`, `tools/blender_smoke.py`; `py -m unittest`.
 
@@ -269,7 +269,7 @@ T1Cam, T1Sun, no stray WT objects; Auto solve and the Test Object handler as he 
 
 Housekeeping: with item 10 fixed (README only, no code or physics), `~/wind_tunnel/_t1/Cube` (5.4 GB)
 and `~/wind_tunnel/_anim` no longer need to stay for this review. The reviewer copy
-`~/wind_tunnel/_review_t1` is deleted.
+`~/wind_tunnel/_review_t1` (245 MB) is still on disk and can be deleted any time.
 
 ## Glossary
 
