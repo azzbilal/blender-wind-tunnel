@@ -286,3 +286,9 @@ and `~/wind_tunnel/_anim` no longer need to stay for this review. The reviewer c
 - *Strouhal number (St)*: f L / U, the non-dimensional shedding frequency.
 - *continuity error (sum local)*: OpenFOAM's time-step measure of mass imbalance, dt times the
   volume-weighted mean of |div(phi)| after the pressure corrector.
+
+## Closure
+
+2026-10-24: item 10 fixed in commit 48216f2 (README: up to about 11 mm, radius 12.5 mm minus the 1.15 mm
+closest centre gap; `gate4_particles.streak_overlap_max_m` 0.01135 in the validation record). No open
+FAIL. O1 moved to FIX_PLAN step 6; O2 and O3 open in SESSION_LOG.md.

@@ -123,6 +123,14 @@ Check, each PASS/FAIL with evidence:
 11. Bilal's live Blender was left with only his own data (ask him; do not open his scenes).
 RULES: no sudo, no em dashes, asterisk terms plus glossary, never "validated" without a cited reference.
 
+- New (2026-10-24, step 3 prep): `meshgen.c_grid` uses `case.Setup.first_cell` as the full first cell
+  height, while y+ is measured at the cell centre (`nearWallDist`, half the height), so the 2D grid runs
+  at about half its nominal y+. Not fixed; Bilal to decide in the step 3 grill or step 7.
+
+### Step 3 started 2026-10-24 (branch worktree-step3-wall)
+Stage 0 done (48216f2). The full slice prompt, with the facts established while loading context, is
+`docs/prompts/step3_wall.md`; resume from it (next: Stage 1 measurement, then grill Q1).
+
 ### NEXT PROMPT (FIX_PLAN step 3, wall mesh and y+; after the T1 review has no open FAIL)
 Slice: FIX_PLAN step 3, wall treatment and surface resolution. Solver-side (case3d), so every
 number is checked against OpenFOAM's definitions and a cited reference, and recorded in
