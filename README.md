@@ -80,7 +80,8 @@ What the run shows, and what it does not (`validation/transient_t1_v2512.json`, 
   and 4).
 - Mass conservation: the time step continuity error is at most 1.95e-12 at every frame (gate 1e-6).
   No smoke particle entered the cube in 196334 particle-frames (v0.6.1). The test is on particle
-  centres: a streak (radius L/160) drawn next to the top face can cut a few mm into the cube; the
+  centres: a streak (radius L/160) drawn next to the top face can reach up to about 11 mm into the
+  cube (radius 12.5 mm minus the 1.15 mm closest centre gap); the
   front face hides that from the T1 camera.
 
 Limits, plainly: this is URANS, so turbulence is modelled, not resolved; only unsteadiness much

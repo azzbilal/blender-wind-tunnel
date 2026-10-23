@@ -82,6 +82,13 @@ the first cell layer).
 - In solved mode, switch off the surface-slide correction, or limit it to the first voxel.
 - Sample the field with OpenFOAM's `cellPoint` interpolation (`postProcess -func
   "internalProbes"` or a VTK export) instead of IDW, or at least use a divergence-cleaning step.
+- Cell centres (T1 review O1, 2026-10-24): every IDW export (steady `field.npz` and the T1 frames)
+  places cell values at the mean of the face centres (`export_field.cell_centres`), not at the
+  volume centroid OpenFOAM writes as `C`. On the cube mesh they differ by up to 0.070 m (1.4 voxels)
+  in cells with uneven face counts (snappyHexMesh refinement interfaces), which moves |U| by up to
+  1.2 % at the voxels sampled. Forces are unaffected (face-by-face sum). Use `writeCellCentres` or a
+  volume-weighted centroid and record the change in `field.npz`. Note for bit-level regression
+  tests: far-field voxel nodes often sit at exact distance ties between more than 4 centres.
 - Extend the voxel grid to at least 5 L downstream.
 
 Accept: rms divergence next to the body under 2 % of U0/h; particles stay out of the solid

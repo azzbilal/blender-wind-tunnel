@@ -722,6 +722,8 @@
   "release": "sheet |y| <= 0.05 L = 0.1 m, 60 a frame, radius L/160 (12.5 mm), trail 0.3 L at U_inf (add-on 0.6.1)",
   "date": "2026-10-24",
   "note": "positional gate on particle centres; a drawn streak (radius 12.5 mm) near the closest centre (1.15 mm) cuts into the cube surface geometrically; the -Y face hides it from the T1 camera (display limit, not a particle inside)",
+  "streak_overlap_max_m": 0.01135,
+  "streak_overlap_note": "deepest a drawn streak can reach into the cube: streak radius 0.0125 m (viz3d smoke tree Radius, geometric) minus min_gap_euclidean_m 0.00115 m; added 2026-10-24 from the T1 review item 10",
   "verdict": "PASS"
  },
  "visibility_0_6_1": {

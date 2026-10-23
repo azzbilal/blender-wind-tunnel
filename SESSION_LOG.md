@@ -65,8 +65,14 @@ closed (Stages 3 to 6), add-on 0.6.0" entry that this one supersedes, is kept ve
 
 ### Open issues
 - k (new, known display limit): gate 4 tests particle centres; a 12.5 mm streak drawn 1.15 mm from the
-  top face cuts into the cube geometrically. The -Y face hides it from the T1 camera; another view
-  would show it.
+  top face reaches up to about 11 mm into the cube (`streak_overlap_max_m` 0.01135 in the record). The
+  -Y face hides it from the T1 camera; another view would show it.
+- T1 review O1 (cell centres = mean of face centres, up to 1.2 % in |U|) moved to FIX_PLAN step 6.
+- T1 review O2 (open): `visibility_0_6_1.red_0_6_0_streaks_with_play_through` stores the pixel counts
+  but not the inputs; add OVERRIDES `{"Radius": 0.00333, "Trail": 0.01, "Rate": 71.43}` to that entry.
+- T1 review O3 (open): "no sustained shedding" is shown for t <= 2 s only; the spec's "tends to the
+  steady state" extrapolates beyond the run. The tail rule's "spread" is the unweighted sample standard
+  deviation over time steps; the spec should name that statistic.
 - The recirculation bubble behind the cube is nearly empty of streaks by t = 2 s: upstream particles
   follow the shear layers. That is the flow, not a rendering fault; seeding inside the bubble is a
   styling question for a later slice.
@@ -75,9 +81,10 @@ closed (Stages 3 to 6), add-on 0.6.0" entry that this one supersedes, is kept ve
 - f, extended: the add-on has no load path for a time-resolved field; WT_T1 needs the Test Object
   handler suspended and Auto solve off (`tools/audit/t1_scene.py`). Panel integration is a later slice.
 - j: URANS on this mesh does not sustain shedding; whether a finer mesh or DES would is untested.
-- Review O2 (Moreland intermediates) still open.
-- Disk: `~/wind_tunnel/_t1/Cube` 5.4 GB and `~/wind_tunnel/_anim` stay until the T1 review passes;
-  `renders/t1_frames` (2.7 GB plus VDBs) is local scratch, regenerable.
+- ANIMATION A+B review O2 (Moreland intermediates) still open.
+- Disk: T1 review closed (item 10 fixed 2026-10-24); `~/wind_tunnel/_review_t1` and `~/wind_tunnel/_anim`
+  deleted, `~/wind_tunnel/_t1/Cube` (5.4 GB) kept. `renders/t1_frames` (2.7 GB plus VDBs) is local
+  scratch, regenerable.
 
 ### REVIEWER PROMPT (fresh session; report to `docs/reviews/transient_t1_review.md`)
 Review slice TRANSIENT T1 including the 0.6.1 polish (commits b2eea87..aa121a3, 7cf7d8f, ed49139 and
