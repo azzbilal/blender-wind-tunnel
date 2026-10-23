@@ -122,3 +122,15 @@ Only 3 and 4 can FAIL; 1 and 2 are reports.
   while the flow accelerates the unsteady Bernoulli term -rho dphi/dt adds to the stagnation pressure,
   so Cp > 1 is possible. To be confirmed, not assumed: Cp must relax toward the steady range in the
   1 to 2 s window; the frame Cp min/max over time go into `validation/transient_t1_v2512.json`.
+- **Full run results (2026-10-24, `validation/transient_t1_v2512.json`)**: 2564 steps, solve 1346 s
+  (22.4 min; dt grew from 6.3e-4 to 8.3e-4 s as the flow settled), Courant max 1.24 after the start.
+  Gate 3 PASS (120 frames, max 1.95e-12 at frame 45). Gate 4 PASS (123918 particle-frames, 0 inside,
+  closest 1.18 mm). Gate 1: Cd mean 1.0 to 2.0 s 1.1243 (0.978 x steady 1.1498 on the same mesh),
+  0.5 to 1.0 s 0.9208, Cd 1.127 at t = 2 s. Gate 2: no sustained shedding. Cs and Cl oscillate
+  (amplitude up to 0.07) between 1.0 and 1.6 s and decay to |Cs|, |Cl| < 0.008 after 1.7 s; the
+  period count alone said "measured" (St 0.26 to 0.39), but a decaying start-up transient has no
+  shedding frequency, so `t1_gates.py` now also requires the last 0.25 s spread to be at least 25 %
+  of the window spread (measured 9 % Cs, 17 % Cl): "not measurable". The URANS solution on this
+  coarse mesh tends to the steady state; whether a finer mesh or a scale-resolving model sheds is
+  not tested here. Cp relaxes as noted: min/max -4.24/+1.159 (frame 1), -2.11/+1.023 (12),
+  -1.39/+1.016 (45), -0.73/+1.026 (120) vs steady -0.68/+1.024.

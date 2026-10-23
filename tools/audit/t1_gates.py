@@ -55,8 +55,15 @@ def main():
     cd.update(min_1_2s=float(c["Cd"][w].min()), max_1_2s=float(c["Cd"][w].max()), steady_gated=CD_STEADY,
               ratio_to_steady=cd["window_1_2s"] / CD_STEADY)
     st = {name: tr.strouhal(t, c[name], U, L, 1.0, 2.0) for name in ("Cs", "Cl")}
+    tail = (t >= 1.75) & (t <= 2.0)
     for name in ("Cs", "Cl"):
-        st[name].update(mean=tr.window_mean(t, c[name], 1.0, 2.0), std=float(c[name][w].std()))
+        sd, sd_tail = float(c[name][w].std()), float(c[name][tail].std())
+        st[name].update(mean=tr.window_mean(t, c[name], 1.0, 2.0), std=sd, std_last_0p25s=sd_tail,
+                        tail_to_window=sd_tail / sd if sd else None)
+        # Counting periods only works for a sustained oscillation: a start-up transient that dies out
+        # inside the window has periods but no shedding frequency (spec Stage 4 note).
+        if st[name]["verdict"] == "measured" and sd_tail < 0.25 * sd:
+            st[name]["verdict"] = "not measurable: oscillation decays inside the window (no sustained shedding)"
 
     q = 0.5 * RHO * U ** 2
     cp = {}
@@ -69,6 +76,7 @@ def main():
     late = [cp[k] for k in cp if k >= 60]
 
     rep = {
+        "date": "2026-10-24", "solver": "pimpleFoam v2512, k-omega SST, backward, maxCo 1, PISO 1/2",
         "case": str(case), "cells": 359618, "steps": len(steps), "end_time": float(t[-1]),
         "gate1_Cd": cd,
         "gate2_St": {**st, "reference": KLOTZ},
@@ -79,6 +87,8 @@ def main():
                              "verdict": "PASS" if cont and not over and not missing else "FAIL"},
         "frame_cp_range": {str(k): v for k, v in cp.items()},
         "cp_range_1_2s": [min(a for a, _ in late), max(b for _, b in late)] if late else None,
+        "cp_range_last_frame": cp.get(n_frames),
+        "cp_range_steady_same_grid": [-0.6772, 1.0245],
     }
     out.write_text(json.dumps(rep, indent=1) + "\n")
     print("T1GATES " + json.dumps({k: v for k, v in rep.items() if k not in ("frame_cp_range",)}

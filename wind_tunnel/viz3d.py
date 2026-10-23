@@ -636,7 +636,7 @@ def build_transient(frames_dir: Path, body, n_frames, scene_fps, L, speed_inf, v
     """TRANSIENT T1 scene objects: flow_kkkk.vdb from every flow_kkkk.npz (written once), WT Flow as a
     VDB sequence, WT Slice through the body centre in Cp mode, the label with flow time, and plain
     smoke advected through the time-varying field. Returns (grid lo, grid hi)."""
-    frames_dir = Path(frames_dir)
+    frames_dir = Path(frames_dir).resolve()      # a relative VDB path would be read against the .blend
     lo = hi = None
     for k in range(1, n_frames + 1):
         npz, vdb = frames_dir / transient.frame_name(k, "npz"), frames_dir / transient.frame_name(k, "vdb")
