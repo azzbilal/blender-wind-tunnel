@@ -506,6 +506,10 @@ class Case3DGate(unittest.TestCase):
     def test_gate_script_copied(self):
         self.assertTrue((self.root / "convergence.py").exists())
 
+    def test_exporter_helpers_copied(self):
+        """export_field.py imports convergence and transient; both sit next to it in the case."""
+        self.assertTrue((self.root / "transient.py").exists())
+
     def test_allrun_clears_stop_file_before_solve(self):
         lines = self.script.read_text().splitlines()
         rm = [i for i, ln in enumerate(lines) if ln.strip() == "rm -f wt_stop"]
@@ -780,7 +784,9 @@ class Transient3D(unittest.TestCase):
         self.tmp.cleanup()
 
     def _entry(self, key, text=None):
-        return [ln.split()[1].rstrip(";") for ln in (text or self.cd).splitlines() if ln.split()[:1] == [key]]
+        """Top-level entries only (before `functions`)."""
+        text = (text or self.cd).split("\nfunctions")[0]
+        return [ln.split()[1].rstrip(";") for ln in text.splitlines() if ln.split()[:1] == [key]]
 
     def _fo(self, kind):
         i = self.cd.index(f"type {kind};")
@@ -863,6 +869,13 @@ class Transient3D(unittest.TestCase):
         self.assertIn("type writeObjects;", cd)
         self.assertNotIn("--frames", script.read_text())
 
+    def test_exporter_and_helpers_copied(self):
+        root = Path(self.tmp.name) / "exp"
+        case3d.write_transient_case(root, self.SRC, self.s, self.tr, L=2.0, Aref=4.0,
+                                    exporter=REPO / "wind_tunnel" / "export_field.py")
+        for f in ("export_field.py", "convergence.py", "transient.py"):
+            self.assertTrue((root / f).exists(), f)
+
 
 class TransientPure(unittest.TestCase):
     """TRANSIENT T1 Stage 3: frame index and physical time, VDB sequence, smoke inputs, Q4 gate maths."""
@@ -937,11 +950,11 @@ class TransientPure(unittest.TestCase):
 
     def test_strouhal_from_side_force(self):
         U, L = 20.0, 2.0
-        t = np.arange(0.0, 2.0, 6.5e-4)
+        t = np.arange(0.0, 3.0, 6.5e-4)
         cs = 0.3 * np.sin(2 * np.pi * 1.1 * t + 0.4)                     # St = 1.1 * 2 / 20 = 0.11
-        r = self.tr.strouhal(t, cs, U, L, 0.0, 2.0)
+        r = self.tr.strouhal(t, cs, U, L, 0.0, 3.0)                      # 3.3 periods, 3 between crossings
         self.assertAlmostEqual(r["St_crossings"], 0.11, delta=0.002)
-        self.assertAlmostEqual(r["St_spectrum"], 0.11, delta=0.03)       # 2 s record: df = 0.5 Hz, St step 0.05
+        self.assertAlmostEqual(r["St_spectrum"], 0.11, delta=0.01)       # zero-padded peak
         self.assertGreaterEqual(r["periods"], 2)
         short = self.tr.strouhal(t, cs, U, L, 1.0, 2.0)                  # 1.1 periods in the window
         self.assertIsNone(short["St_crossings"])

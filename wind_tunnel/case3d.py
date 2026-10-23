@@ -269,6 +269,31 @@ def split3(n: int):
     return best
 
 
+# Spatial schemes of the steady solve. The transient case (write_transient_case) uses the same text with
+# a backward time derivative and without the steady-only `bounded` prefix (spec Q3), so Cd compares
+# like-for-like.
+FV_SCHEMES = """ddtSchemes { default steadyState; }
+gradSchemes
+{
+    default         Gauss linear;
+    grad(U)         cellLimited Gauss linear 1;
+}
+divSchemes
+{
+    default         none;
+    div(phi,U)      bounded Gauss linearUpwindV grad(U);
+    div(phi,k)      bounded Gauss upwind;
+    div(phi,omega)  bounded Gauss upwind;
+    div((nuEff*dev2(T(grad(U))))) Gauss linear;
+    div(div(phi,U)) Gauss linear;
+}
+laplacianSchemes { default Gauss linear limited corrected 0.5; }
+interpolationSchemes { default linear; }
+snGradSchemes { default limited corrected 0.5; }
+wallDist { method meshWave; }
+"""
+
+
 def write_system(case: Path, s: Setup3D):
     sysd, con = case / "system", case / "constant"
     sysd.mkdir(parents=True, exist_ok=True)
@@ -306,26 +331,7 @@ functions
     stop {{ type abort; libs (utilityFunctionObjects); file "wt_stop"; action writeNow; }}
 }}
 """)
-    w(sysd / "fvSchemes", "dictionary", "fvSchemes", """ddtSchemes { default steadyState; }
-gradSchemes
-{
-    default         Gauss linear;
-    grad(U)         cellLimited Gauss linear 1;
-}
-divSchemes
-{
-    default         none;
-    div(phi,U)      bounded Gauss linearUpwindV grad(U);
-    div(phi,k)      bounded Gauss upwind;
-    div(phi,omega)  bounded Gauss upwind;
-    div((nuEff*dev2(T(grad(U))))) Gauss linear;
-    div(div(phi,U)) Gauss linear;
-}
-laplacianSchemes { default Gauss linear limited corrected 0.5; }
-interpolationSchemes { default linear; }
-snGradSchemes { default limited corrected 0.5; }
-wallDist { method meshWave; }
-""")
+    w(sysd / "fvSchemes", "dictionary", "fvSchemes", FV_SCHEMES)
     w(sysd / "fvSolution", "dictionary", "fvSolution", """solvers
 {
     p     { solver GAMG; smoother GaussSeidel; tolerance 1e-7; relTol 0.05; }
@@ -369,7 +375,8 @@ def write_case(root: Path, stl_tris, s: Setup3D, exporter: Path | None = None):
     write_fields(root / "0.orig", s, t["L"])
     if exporter:
         shutil.copy(exporter, root / "export_field.py")
-    shutil.copy(Path(__file__).with_name("convergence.py"), root / "convergence.py")
+    for helper in ("convergence.py", "transient.py"):      # export_field.py imports both
+        shutil.copy(Path(__file__).with_name(helper), root / helper)
     vox = t["L"] / s.voxels_per_L
     exp_args = (f"--speed {s.speed} --rho {s.rho} --nu {s.nu} --voxel {vox:.6g} --L {t['L']:.6g} "
                 f"--cap {s.iterations}")
@@ -407,3 +414,163 @@ def write_case(root: Path, stl_tris, s: Setup3D, exporter: Path | None = None):
     except OSError:
         pass
     return script, t
+
+
+# ---------------------------------------------------------------- transient (TRANSIENT T1)
+@dataclass
+class Transient:
+    """pimpleFoam on the mesh of a solved steady case (docs/reference/transient_t1_spec.md)."""
+    end_time: float = 2.0         # s, 20 flow-throughs L/U for the 2 m cube at 20 m/s
+    frames_per_s: int = 60        # U and p written every 1/60 s: frame k at t = k / 60 s
+    max_co: float = 1.0           # Courant target of the adjustable time step
+    n_outer: int = 1              # PIMPLE outer correctors (1 = PISO mode)
+    n_corr: int = 2               # pressure correctors per outer corrector
+    full_write: float = 0.5       # s between full writes of every field (restart points)
+    procs: int = 24               # must match the decomposition of the source case
+    steps: int | None = None      # cost test: stop after this many time steps and do not export
+
+
+def transient_control_dict(s: Setup3D, tr: Transient, L: float, Aref: float) -> str:
+    if tr.steps:
+        stop, wctl, wint = "nextWrite", "timeStep", f"{tr.steps}"
+    else:
+        stop, wctl, wint = "endTime", "adjustableRunTime", f"{tr.full_write:g}"
+    # writeObjects with adjustableRunTime shortens deltaT to land on its write times (v2512,
+    # timeControlFunctionObject.C:560), so every frame is written at exactly k / frames_per_s.
+    return f"""application     pimpleFoam;
+startFrom       latestTime;
+startTime       0;
+stopAt          {stop};
+endTime         {tr.end_time:g};
+deltaT          0.001;
+writeControl    {wctl};
+writeInterval   {wint};
+purgeWrite      0;
+writeFormat     ascii;
+writePrecision  8;
+writeCompression off;
+timeFormat      general;
+timePrecision   8;
+runTimeModifiable false;
+adjustTimeStep  yes;
+maxCo           {tr.max_co:g};
+maxDeltaT       1;
+
+functions
+{{
+    frames
+    {{
+        type writeObjects;
+        libs (utilityFunctionObjects);
+        objects (U p);
+        writeOption anyWrite;
+        writeControl adjustableRunTime;
+        writeInterval {1.0 / tr.frames_per_s:.13g};
+    }}
+    forceCoeffs
+    {{
+        type forceCoeffs;
+        libs (forces);
+        patches (body);
+        rho rhoInf;
+        rhoInf {s.rho:.8g};
+        CofR (0 0 0);
+        liftDir (0 0 1);
+        dragDir (1 0 0);
+        pitchAxis (0 1 0);
+        magUInf {s.speed:g};
+        lRef {L:g};
+        Aref {Aref:g};
+        writeControl timeStep;
+        writeInterval 1;
+        log off;
+    }}
+}}
+"""
+
+
+def transient_fv_schemes() -> str:
+    return FV_SCHEMES.replace("default steadyState;", "default backward;").replace("bounded Gauss", "Gauss")
+
+
+def transient_fv_solution(tr: Transient) -> str:
+    return f"""solvers
+{{
+    p      {{ solver GAMG; smoother GaussSeidel; tolerance 1e-7; relTol 0.01; }}
+    pFinal {{ $p; relTol 0; }}
+    Phi    {{ $p; relTol 0.01; }}
+    "(U|k|omega)" {{ solver smoothSolver; smoother GaussSeidel; tolerance 1e-8; relTol 0.1; nSweeps 1; }}
+    "(U|k|omega)Final" {{ $U; relTol 0; }}
+}}
+PIMPLE
+{{
+    momentumPredictor yes;
+    nOuterCorrectors {tr.n_outer};
+    nCorrectors {tr.n_corr};
+    nNonOrthogonalCorrectors 1;
+}}
+potentialFlow {{ nNonOrthogonalCorrectors 5; }}
+relaxationFactors {{ equations {{ ".*" 1; }} }}
+"""
+
+
+def write_transient_case(root: Path, src: str, s: Setup3D, tr: Transient, L: float, Aref: float,
+                         exporter: Path | None = None):
+    """Writes system/, constant/ properties and an Allrun into `root`; the Allrun copies the decomposed
+    mesh and the initial fields of the solved steady case `src` (a WSL path), starts from potentialFoam,
+    runs pimpleFoam and exports one field frame per written time. Returns the Allrun path."""
+    root = Path(root)
+    if root.exists():
+        shutil.rmtree(root)
+    sysd, con = root / "system", root / "constant"
+    sysd.mkdir(parents=True)
+    con.mkdir(parents=True)
+    w = lambda p, obj, body: p.write_text(newline="\n", data=HEADER.format(cls="dictionary", obj=obj) + body)
+    w(con / "transportProperties", "transportProperties", f"transportModel Newtonian;\nnu {s.nu:.8g};\n")
+    w(con / "turbulenceProperties", "turbulenceProperties",
+      "simulationType RAS;\nRAS\n{\n    RASModel kOmegaSST;\n    turbulence on;\n    printCoeffs on;\n}\n")
+    w(sysd / "controlDict", "controlDict", transient_control_dict(s, tr, L, Aref))
+    w(sysd / "fvSchemes", "fvSchemes", transient_fv_schemes())
+    w(sysd / "fvSolution", "fvSolution", transient_fv_solution(tr))
+    if exporter:
+        shutil.copy(exporter, root / "export_field.py")
+        for helper in ("convergence.py", "transient.py"):
+            shutil.copy(Path(__file__).with_name(helper), root / helper)
+    mpi = f"mpirun -np {tr.procs} --oversubscribe"
+    vox = L / s.voxels_per_L
+    lines = [
+        "#!/bin/bash", ENV,
+        "export OMPI_ALLOW_RUN_AS_ROOT=1 OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 OMPI_MCA_btl_vader_single_copy_mechanism=none",
+        "cd \"$(dirname \"$0\")\"",
+        "fail() { echo \"failed $1\" > status; exit 1; }",
+        f"SRC=\"{src}\"",
+        # potentialFoam overwrites processor*/0; a second start over a run would mix two runs.
+        "ls -d processor0/[0-9]* 2>/dev/null | grep -qv '/0$' && fail \"the case already has time steps: "
+        "the potential start runs only on a fresh copy\"",
+        "echo copying > status",
+        "[ -d \"$SRC/processor0/constant/polyMesh\" ] || fail \"no decomposed mesh in $SRC\"",
+        "cp -r \"$SRC/constant/polyMesh\" \"$SRC/constant/triSurface\" constant/ || fail copy",
+        "cp \"$SRC/system/decomposeParDict\" system/ || fail copy",
+        "cp -r \"$SRC/0.orig\" 0 || fail copy",
+        "(cd \"$SRC\" && cp -r --parents processor*/constant \"$OLDPWD\"/) || fail copy",
+        f"[ \"$(ls -d processor* | wc -l)\" = {tr.procs} ] || fail \"source is not decomposed into {tr.procs}\"",
+        "for d in processor*; do rm -rf \"${d:?}/0\"; cp -r 0 \"$d/0\"; done",
+        "echo potential > status",
+        f"{mpi} potentialFoam -parallel -writep > log.potentialFoam 2>&1 || fail potentialFoam",
+        "echo solving > status",
+        f"{mpi} pimpleFoam -parallel > log.pimpleFoam 2>&1 || fail pimpleFoam",
+    ]
+    if not tr.steps:
+        lines += [
+            "echo exporting > status",
+            f"python3 export_field.py . --frames --speed {s.speed} --rho {s.rho} --nu {s.nu} "
+            f"--voxel {vox:.6g} --L {L:.6g} --fps {tr.frames_per_s} --jobs 20 > log.export 2>&1 || fail export",
+        ]
+    lines.append("echo done > status")
+    script = root / "Allrun"
+    script.write_text(newline="\n", data="\n".join(lines) + "\n")
+    try:
+        script.chmod(0o755)
+    except OSError:
+        pass
+    return script

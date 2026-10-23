@@ -22,9 +22,10 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 try:
-    from . import convergence
-except ImportError:                 # run as a script next to convergence.py
+    from . import convergence, transient
+except ImportError:                 # run as a script next to convergence.py and transient.py
     import convergence
+    import transient
 
 NUM = rb"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 
@@ -298,6 +299,58 @@ def verdict_record(case, cap, Af, speed, rho):
     return rec
 
 
+def voxel_grid(tris, pts, L, h, max_voxels):
+    """The grid Blender samples: 0.75 L around the body, 2.5 L behind it, inside the mesh; the voxel h
+    grows by 10 % steps until the grid has at most max_voxels nodes. Returns (origin, h, gx, gy, gz)."""
+    lo, hi = tris.reshape(-1, 3).min(axis=0), tris.reshape(-1, 3).max(axis=0)
+    blo = np.array([lo[0] - 0.75 * L, lo[1] - 0.75 * L, lo[2] - 0.75 * L])
+    bhi = np.array([hi[0] + 2.5 * L, hi[1] + 0.75 * L, hi[2] + 0.75 * L])
+    blo = np.maximum(blo, pts.min(axis=0))
+    bhi = np.minimum(bhi, pts.max(axis=0))
+    while np.prod(np.ceil((bhi - blo) / h) + 1) > max_voxels:
+        h *= 1.1
+    nx, ny, nz = (np.ceil((bhi - blo) / h).astype(int) + 1)
+    return blo, h, blo[0] + h * np.arange(nx), blo[1] + h * np.arange(ny), blo[2] + h * np.arange(nz)
+
+
+def idw_weights(cc, q_pts, dtype=np.float64):
+    """Inverse-distance-squared weights of the 4 nearest cell centres for every query point:
+    (idx int32, w dtype), rows of w sum to 1. Computed once and reused for every frame."""
+    dist, idx = cKDTree(cc).query(q_pts, k=4, workers=-1)
+    w = 1.0 / np.maximum(dist, 1e-9) ** 2
+    w /= w.sum(axis=1, keepdims=True)
+    return idx.astype(np.int32), w.astype(dtype)
+
+
+def idw_apply(values, idx, w):
+    """Cell values (n,) or (n, 3) interpolated with idw_weights."""
+    v = values[idx]
+    return (v * w[..., None]).sum(axis=1) if v.ndim == 3 else (v * w).sum(axis=1)
+
+
+def gather_cells(parts, ncells):
+    """Global cell array from per-processor (cellProcAddressing, values) pairs; every cell exactly once."""
+    first = parts[0][1]
+    out = np.empty((ncells,) + first.shape[1:], dtype=first.dtype)
+    seen = np.zeros(ncells, dtype=bool)
+    for addr, vals in parts:
+        out[addr] = vals
+        seen[addr] = True
+    if not seen.all():
+        raise ValueError(f"{int((~seen).sum())} cells missing from the processor fields")
+    return out
+
+
+def frame_dirs(case: Path, fps=transient.FPS_CFD):
+    """{frame k: time directory name} of the decomposed case's written times that hold U."""
+    out = {}
+    for d in (Path(case) / "processor0").iterdir():
+        k = transient.frame_from_time(d.name, fps)
+        if k is not None and (d / "U").exists():
+            out[k] = d.name
+    return dict(sorted(out.items()))
+
+
 def write_field_npz(path, origin, voxel, U, p, solid, speed, rho, p_inf):
     """field.npz: U (m/s) and p = rho (p - p_inf) in Pa on the voxel grid, both 0 inside the body.
     p and p_inf are kinematic; viz3d.write_vdb turns p into cp = p / (0.5 rho U^2)."""
@@ -307,6 +360,68 @@ def write_field_npz(path, origin, voxel, U, p, solid, speed, rho, p_inf):
     pg[solid] = 0.0
     np.savez_compressed(path, origin=origin, voxel=voxel, U=U.astype(np.float32), p=pg.astype(np.float32),
                         solid=solid, speed=speed, p_inf_Pa=rho * p_inf)
+
+
+# ---------------------------------------------------------------- time-resolved frames (TRANSIENT T1)
+_CTX = {}
+
+
+def _export_frame(item):
+    """One frame: U and p gathered from the processor directories, interpolated with the cached weights,
+    p referenced to this frame's inlet mean. Runs in a forked worker that shares _CTX."""
+    k, tname = item
+    c = _CTX
+    U = gather_cells([(addr, read_internal(proc / tname / "U", 3, len(addr))) for proc, addr in c["procs"]],
+                     c["ncells"])
+    p = gather_cells([(addr, read_internal(proc / tname / "p", 1, len(addr))) for proc, addr in c["procs"]],
+                     c["ncells"])
+    p_inf = inlet_reference_pressure(p, c["inlet_owner"], c["inlet_Sf"])
+    nx, ny, nz = c["shape"]
+    Ug = idw_apply(U, c["idx"], c["w"]).reshape(nx, ny, nz, 3)
+    pg = idw_apply(p, c["idx"], c["w"]).reshape(nx, ny, nz)
+    write_field_npz(c["out"] / transient.frame_name(k, "npz"), c["origin"], c["h"], Ug, pg, c["solid"],
+                    c["speed"], c["rho"], p_inf)
+    return k, tname, c["rho"] * p_inf
+
+
+def export_frames(case, a):
+    """frames/flow_kkkk.npz for every written frame of the decomposed case, plus frames/index.json.
+    The mesh, the solid mask and the interpolation weights are computed once; frames go in parallel."""
+    import multiprocessing as mp
+    pm = case / "constant" / "polyMesh"
+    pts = read_points(pm)
+    sizes, starts, toks = read_faces(pm)
+    owner = read_labels(pm / "owner")
+    neigh = read_labels(pm / "neighbour")
+    ncells = int(max(owner.max(), neigh.max())) + 1
+    cc = cell_centres(pts, sizes, starts, toks, owner, neigh, ncells)
+    start, n = read_boundary(pm)["inlet"]
+    inlet = np.arange(start, start + n)
+    _, Sf_in = face_geometry(pts, sizes, starts, toks, inlet)
+    tris_raw = Path(case / "constant" / "triSurface" / "body.stl").read_bytes()
+    nt = int.from_bytes(tris_raw[80:84], "little")
+    arr = np.frombuffer(tris_raw[84:84 + 50 * nt], dtype=np.dtype([("n", "<f4", 3), ("v", "<f4", (3, 3)), ("a", "<u2")]))
+    tris = arr["v"].astype(float)
+    blo, h, gx, gy, gz = voxel_grid(tris, pts, a.L, a.voxel, a.max_voxels)
+    X, Y, Z = np.meshgrid(gx, gy, gz, indexing="ij")
+    idx, w = idw_weights(cc, np.column_stack([X.ravel(), Y.ravel(), Z.ravel()]), dtype=np.float32)
+    del X, Y, Z
+    solid = inside_mask(tris, gx, gy, gz)
+    procs = sorted((d for d in case.iterdir() if d.name.startswith("processor")), key=lambda d: int(d.name[9:]))
+    frames = frame_dirs(case, a.fps)
+    out = case / "frames"
+    out.mkdir(exist_ok=True)
+    _CTX.update(procs=[(d, read_labels(d / "constant" / "polyMesh" / "cellProcAddressing")) for d in procs],
+                ncells=ncells, inlet_owner=owner[inlet], inlet_Sf=Sf_in, shape=(len(gx), len(gy), len(gz)),
+                idx=idx, w=w, solid=solid, origin=blo, h=h, speed=a.speed, rho=a.rho, out=out)
+    print("cells", ncells, "grid", len(gx), len(gy), len(gz), "voxel", h, "solid", int(solid.sum()),
+          "frames", len(frames), flush=True)
+    with mp.get_context("fork").Pool(a.jobs) as pool:
+        done = sorted(pool.imap_unordered(_export_frame, frames.items()))
+    index = {"fps": a.fps, "speed": a.speed, "L": a.L, "voxel": h, "origin": blo.tolist(),
+             "frames": [{"k": k, "time": tn, "p_inf_Pa": pi} for k, tn, pi in done]}
+    (out / "index.json").write_text(json.dumps(index, indent=1))
+    print("exported", len(done), "frames", flush=True)
 
 
 def main():
@@ -319,8 +434,13 @@ def main():
     ap.add_argument("--L", type=float, required=True)
     ap.add_argument("--max-voxels", type=int, default=4_000_000)
     ap.add_argument("--cap", type=int, default=None, help="iteration cap (controlDict endTime)")
+    ap.add_argument("--frames", action="store_true", help="time-resolved: one npz per written frame")
+    ap.add_argument("--fps", type=int, default=transient.FPS_CFD, help="frames per second of flow time")
+    ap.add_argument("--jobs", type=int, default=20, help="frames exported in parallel")
     a = ap.parse_args()
     case = Path(a.case)
+    if a.frames:
+        return export_frames(case, a)
     pm = case / "constant" / "polyMesh"
     t = latest_time(case)
     print("time", t, flush=True)
@@ -353,23 +473,12 @@ def main():
     print(json.dumps(forces), flush=True)
 
     # ---- the voxel grid Blender samples
-    lo, hi = tris.reshape(-1, 3).min(axis=0), tris.reshape(-1, 3).max(axis=0)
-    L, h = a.L, a.voxel
-    blo = np.array([lo[0] - 0.75 * L, lo[1] - 0.75 * L, lo[2] - 0.75 * L])
-    bhi = np.array([hi[0] + 2.5 * L, hi[1] + 0.75 * L, hi[2] + 0.75 * L])
-    blo = np.maximum(blo, pts.min(axis=0))
-    bhi = np.minimum(bhi, pts.max(axis=0))
-    while np.prod(np.ceil((bhi - blo) / h) + 1) > a.max_voxels:
-        h *= 1.1
-    nx, ny, nz = (np.ceil((bhi - blo) / h).astype(int) + 1)
-    gx, gy, gz = (blo[0] + h * np.arange(nx), blo[1] + h * np.arange(ny), blo[2] + h * np.arange(nz))
+    blo, h, gx, gy, gz = voxel_grid(tris, pts, a.L, a.voxel, a.max_voxels)
+    nx, ny, nz = len(gx), len(gy), len(gz)
     X, Y, Z = np.meshgrid(gx, gy, gz, indexing="ij")
-    q_pts = np.column_stack([X.ravel(), Y.ravel(), Z.ravel()])
-    dist, idx = cKDTree(cc).query(q_pts, k=4, workers=-1)
-    w = 1.0 / np.maximum(dist, 1e-9) ** 2
-    w /= w.sum(axis=1, keepdims=True)
-    Ug = (U[idx] * w[..., None]).sum(axis=1).reshape(nx, ny, nz, 3)
-    pg = (p[idx] * w).sum(axis=1).reshape(nx, ny, nz)
+    idx, w = idw_weights(cc, np.column_stack([X.ravel(), Y.ravel(), Z.ravel()]))
+    Ug = idw_apply(U, idx, w).reshape(nx, ny, nz, 3)
+    pg = idw_apply(p, idx, w).reshape(nx, ny, nz)
     solid = inside_mask(tris, gx, gy, gz)
     write_field_npz(case / "field.npz", blo, h, Ug, pg, solid, a.speed, a.rho, p_inf)
     print("grid", nx, ny, nz, "voxel", h, flush=True)
