@@ -921,9 +921,14 @@ class TransientPure(unittest.TestCase):
         step = 1.5 * U / 60 / d["Substeps"]                              # 1.5 U_inf: fastest flow near the cube
         self.assertLessEqual(step, h)
         self.assertGreater(1.5 * U / 60 / (d["Substeps"] - 1), h)        # the fewest substeps that do it
-        self.assertAlmostEqual(d["Rate"] * (1.4 * L) ** 2, 40.0)        # 40 new particles a frame (was 150)
+        self.assertAlmostEqual(d["Sheet"], 0.05 * L)                     # released within +-0.05 L of the slice
+        self.assertAlmostEqual(d["Rate"] * (1.4 * L) * (2 * d["Sheet"]), 40.0)  # still 40 new particles a frame
         self.assertAlmostEqual(U * d["Trail"], 0.1 * L)                 # streak 0.1 L at U_inf
+        self.assertAlmostEqual(d["Radius"], L / 600.0)                  # thin (HIL round: was L / 400)
         self.assertTrue(d["Plain"])
+        self.assertEqual(self.tr.PLAIN_SRGB, (48, 48, 48))               # charcoal on the Cp map
+        d12 = self.tr.plain_smoke_inputs(L, U, 12, h)
+        self.assertAlmostEqual(d12["Time Scale"] * (1 / 12), 1 / 60)     # 12 fps video: still 1/60 s a frame
         self.assertTrue(d["Use Field"])
         self.assertGreaterEqual(d["Lifetime"] * U / 60, 4.25 * L)         # lives long enough to cross the grid
 
