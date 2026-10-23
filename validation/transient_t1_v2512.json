@@ -704,5 +704,6 @@
   "scene_fps": 12,
   "release": "sheet |y| <= 0.05 L = 0.1 m, 40 a frame, radius L/600",
   "verdict": "PASS"
- }
+ },
+ "steady_export_regression": "refactored export_field.py on a copy of _anim/Cube t = 1831: field.npz bit-identical (7 keys), forces.json equal to forces_1831e_verdict2000.json (35 keys), 2026-10-24"
 }

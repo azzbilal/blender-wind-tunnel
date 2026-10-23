@@ -1,7 +1,7 @@
 # Session log
 
-Current state and the NEXT prompt only. Every earlier entry, including the 2026-10-22 "ANIMATION A+B
-closed" entry that this one supersedes, is kept verbatim in `docs/archive/session_log_2026-10.md`.
+Current state and the NEXT prompt only. Every earlier entry, including the 2026-10-23 "TRANSIENT T1
+Stages 0 to 2" entry that this one supersedes, is kept verbatim in `docs/archive/session_log_2026-10.md`.
 
 ## 2026-10-24: TRANSIENT T1 closed (Stages 3 to 6), add-on 0.6.0
 
@@ -30,6 +30,9 @@ closed" entry that this one supersedes, is kept verbatim in `docs/archive/sessio
 - Stage 5 (aa121a3): 0.6.0 in both places, README "Time-resolved flow", tests 104 OK (3 expected
   failures), deployed, headless smoke check ok; WT_T1 and every WT datablock removed from the live
   Blender after checking Bilal's "Scene" unchanged; add-on handler restored, 0.6.0 loaded live.
+- Steady export regression (CLAUDE.md rule for export_field changes): the refactored exporter on a scratch
+  copy of `_anim/Cube` t = 1831 gives a bit-identical `field.npz` (all 7 keys) and a `forces.json` equal to
+  `forces_1831e_verdict2000.json` on all 35 keys (same history to 2000); scratch deleted.
 
 ### Decisions and deviations (all in `docs/reference/transient_t1_spec.md`, Stage 3 and 4 notes)
 - ASCII writes instead of binary (reuses the tested readers). Field held at frame k through the smoke

@@ -49,7 +49,9 @@ wind_tunnel/            the add-on (Blender package)
   results.py            2D: ASCII readers, face-by-face force sum, Cp, convergence verdict (pure)
   flowfield.py          2D: resampled field + streamline tracing (numpy, optional scipy)
   case3d.py             3D: blockMesh box + snappyHexMesh + simpleFoam case for any STL (pure)
-  export_field.py       3D: runs INSIDE WSL after the solve; forces.json + field.npz (numpy, scipy)
+  export_field.py       3D: runs INSIDE WSL after the solve; forces.json + field.npz (numpy, scipy);
+                        --frames: one frames/flow_kkkk.npz per written time of a transient run
+  transient.py          time-resolved run (pure): frame k = t k/60 s, VDB sequence, smoke inputs, gate maths
   viz.py, viz3d.py      Blender objects, OpenVDB volume, Geometry Nodes trees (needs bpy)
   wsl.py                find distro and OpenFOAM, map paths, launch/stop runs (pure)
 tests/test_pure.py      unittest suite for the pure modules, no Blender needed
