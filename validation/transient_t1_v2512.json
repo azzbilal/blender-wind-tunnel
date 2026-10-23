@@ -674,7 +674,8 @@
   -0.6772,
   1.0245
  ],
- "gate4_particles": {
+ "solve_seconds": 1345.75,
+ "gate4_particles_first_render": {
   "field": "renders/t1_frames (copy of ~/wind_tunnel/_t1/Cube/frames)",
   "frames": 120,
   "use_field": true,
@@ -688,5 +689,20 @@
   "seconds": 13.9,
   "verdict": "PASS"
  },
- "solve_seconds": 1345.75
+ "gate4_particles": {
+  "field": "renders/t1_frames (copy of ~/wind_tunnel/_t1/Cube/frames)",
+  "frames": 120,
+  "use_field": true,
+  "use_field_nots": 1,
+  "particle_frames": 130934,
+  "inside_body_box_abs_lt_1m": 0,
+  "particles_alive_max": 1369,
+  "min_gap_euclidean_m": 0.0011539579914975181,
+  "min_gap_chebyshev_m": 0.0009911060333251953,
+  "first_inside": null,
+  "seconds": 34.5,
+  "scene_fps": 12,
+  "release": "sheet |y| <= 0.05 L = 0.1 m, 40 a frame, radius L/600",
+  "verdict": "PASS"
+ }
 }

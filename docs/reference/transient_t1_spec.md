@@ -134,3 +134,7 @@ Only 3 and 4 can FAIL; 1 and 2 are reports.
   coarse mesh tends to the steady state; whether a finer mesh or a scale-resolving model sheds is
   not tested here. Cp relaxes as noted: min/max -4.24/+1.159 (frame 1), -2.11/+1.023 (12),
   -1.39/+1.016 (45), -0.73/+1.026 (120) vs steady -0.68/+1.024.
+- **HIL round (Bilal, 2026-10-24)**: streaks thin (radius L/600) and charcoal (sRGB 48), released only
+  in a sheet |y| <= 0.05 L at 40 a frame (integration unchanged), video 12 fps (120 frames, 10 s;
+  Time Scale 12/60 keeps 1/60 s of flow per frame, label unchanged). Gate 4 re-run on the shipped
+  render: 130934 particle-frames, 0 inside, closest 1.15 mm (Chebyshev 0.99 mm), PASS.

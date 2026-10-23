@@ -408,6 +408,7 @@ def _smoke_tree():
     _sock(tree, "Plain", "NodeSocketBool", False)
     _sock(tree, "Substeps", "NodeSocketInt", 1, lo=1)
     _sock(tree, "Trail", "NodeSocketFloat", 0.0, lo=0.0)
+    _sock(tree, "Sheet", "NodeSocketFloat", 0.0, lo=0.0)     # > 0: release only within +-Sheet of the centre y
     _sock(tree, "Geometry", "NodeSocketGeometry", out=True)
     gi = tree.nodes.new("NodeGroupInput")
     go = tree.nodes.new("NodeGroupOutput")
@@ -437,7 +438,14 @@ def _smoke_tree():
     grid = tree.nodes.new("GeometryNodeMeshGrid")
     grid.inputs["Vertices X"].default_value = grid.inputs["Vertices Y"].default_value = 2
     tree.links.new(_math(tree, "ADD", sep.outputs["Z"], _math(tree, "MULTIPLY", L, 0.4)), grid.inputs["Size X"])
-    tree.links.new(_math(tree, "ADD", sep.outputs["Y"], _math(tree, "MULTIPLY", L, 0.4)), grid.inputs["Size Y"])
+    wide = _math(tree, "ADD", sep.outputs["Y"], _math(tree, "MULTIPLY", L, 0.4))
+    thin = _math(tree, "MULTIPLY", gi.outputs["Sheet"], 2.0)
+    fsw = tree.nodes.new("GeometryNodeSwitch")
+    fsw.input_type = "FLOAT"
+    tree.links.new(_cmp(tree, "GREATER_THAN", gi.outputs["Sheet"], 0.0), fsw.inputs["Switch"])
+    tree.links.new(wide, fsw.inputs["False"])
+    tree.links.new(thin, fsw.inputs["True"])
+    tree.links.new(fsw.outputs["Output"], grid.inputs["Size Y"])
     xf = tree.nodes.new("GeometryNodeTransform")
     tree.links.new(grid.outputs["Mesh"], xf.inputs["Geometry"])
     xf.inputs["Rotation"].default_value = (0.0, math.pi / 2, 0.0)
@@ -578,8 +586,9 @@ def _smoke_tree():
     msw.input_type = "MATERIAL"
     tree.links.new(gi.outputs["Plain"], msw.inputs["Switch"])
     msw.inputs["False"].default_value = _emission_material("WT Smoke", "speed", 0.3, 1.9, 2.5, instancer=True)
+    grey = anim.srgb_to_linear(transient.PLAIN_SRGB[0] / 255)
     msw.inputs["True"].default_value = _emission_material("WT Smoke Plain", "speed", 0.0, 1.0, 1.0,
-                                                          instancer=True, stops=[(0.0, (1.0, 1.0, 1.0))])
+                                                          instancer=True, stops=[(0.0, (grey, grey, grey))])
     setm = tree.nodes.new("GeometryNodeSetMaterial")
     tree.links.new(msw.outputs["Output"], setm.inputs["Material"])
     tree.links.new(inst.outputs["Instances"], setm.inputs["Geometry"])

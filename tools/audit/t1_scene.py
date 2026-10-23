@@ -15,7 +15,7 @@ from pathlib import Path
 import bpy
 
 REPO = Path(r"D:\10_PROJECTS\aerodynamics blender openfoam")
-N_FRAMES, FPS, L, U = 120, 24, 2.0, 20.0
+N_FRAMES, FPS, L, U = 120, 12, 2.0, 20.0     # 12 fps: 120 frames, 10 s video (HIL round)
 SCENE = "WT_T1"
 
 

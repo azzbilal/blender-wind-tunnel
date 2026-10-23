@@ -10,7 +10,8 @@ sequence by viz3d.build_transient, exactly as the T1 scene is built. Checks:
      frame 5 (past the sequence, CLIP) it keeps no vertex;
   2. WT Smoke (plain inputs, Substeps > 1) moves particles U / 60 = 0.3333 m per scene frame: the
      distinct x positions at frame 4 are spaced by that step (one CFD frame interval per scene frame);
-  3. each streak is |v| Trail = 0.1 L long and points along +X.
+  3. each streak is |v| Trail = 0.1 L long and points along +X, and particles start within +-0.05 L of
+     y = 0 (the sheet in the slice plane).
 Prints T1CHECK {json} and exits 1 on any failure.
 """
 import json
@@ -90,6 +91,9 @@ if not np.allclose(lengths, 0.1 * L, rtol=1e-3):
     fails.append(f"streak lengths {lengths.min():.5f}..{lengths.max():.5f}, expected {0.1 * L}")
 if not np.allclose(dirs, [1.0, 0.0, 0.0], atol=1e-4):
     fails.append("streaks not along +X")
+y = np.array([m.translation[1] for m in inst])
+if np.abs(y).max() > 0.05 * L + 1e-6:                  # uniform field: y stays at its release value
+    fails.append(f"release outside the +-0.05 L sheet: |y| max {np.abs(y).max():.5f}")
 
 # 4. The label's time text, built in nodes from constants, equals transient.time_label.
 probe = viz3d._new_tree("WT probe")
@@ -114,7 +118,7 @@ if not all(labels.values()):
     fails.append(f"time label text differs from transient.time_label: {labels}")
 
 rep = {"frames": cps, "smoke_inputs": inputs, "time_labels_match": labels, "particles": len(inst), "x_levels": xs.tolist(),
-       "x_steps": steps.tolist(), "streak_len": [float(lengths.min()), float(lengths.max())],
+       "x_steps": steps.tolist(), "y_abs_max": float(np.abs(y).max()), "streak_len": [float(lengths.min()), float(lengths.max())],
        "fails": fails, "blender": bpy.app.version_string}
 print("T1CHECK " + json.dumps(rep))
 sys.exit(1 if fails else 0)

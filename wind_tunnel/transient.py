@@ -14,6 +14,7 @@ import numpy as np
 
 FPS_CFD = 60          # frames written per second of physical time
 FRAME_TOL = 1e-3      # a written time is frame k when |t fps - k| < this (time names have 8 digits)
+PLAIN_SRGB = (48, 48, 48)   # streak colour: charcoal, readable on every Cp colour of the slice
 
 
 # ---------------------------------------------------------------- frames
@@ -54,18 +55,21 @@ def time_label(k, U, L, fps=FPS_CFD):
 
 
 def plain_smoke_inputs(L, U, scene_fps, voxel, fps=FPS_CFD):
-    """Smoke tree inputs for a time-resolved field (open issue i: plain white, fewer particles, short
-    streaks). Particles move by exactly one CFD frame interval (1/fps s) per scene frame, so they keep
-    pace with the field; the step is split into substeps of at most one voxel at 1.5 U_inf."""
+    """Smoke tree inputs for a time-resolved field (open issue i, as changed at the T1 HIL: thin charcoal
+    streaks released in a sheet within +-0.05 L of the slice plane y = centre, 40 a frame). Particles
+    move by exactly one CFD frame interval (1/fps s) per scene frame, so they keep pace with the field
+    at any video frame rate; the step is split into substeps of at most one voxel at 1.5 U_inf."""
+    sheet = 0.05 * L
     return {
         "Use Field": True,
         "Plain": True,
         "Time Scale": scene_fps / fps,                         # Delta Time (1 / scene_fps) * this = 1 / fps
         "Substeps": max(1, math.ceil(1.5 * U / fps / voxel - 1e-9)),
-        "Rate": 40.0 / (1.4 * L) ** 2,                          # per m2 of the release plane: 40 a frame
+        "Sheet": sheet,                                          # half thickness of the release plane in y
+        "Rate": 40.0 / (1.4 * L * 2 * sheet),                   # per m2 of the release plane: 40 a frame
         "Lifetime": float(math.ceil(1.5 * 4.25 * L * fps / U)),  # frames: the 4.25 L grid at 1 / 1.5 of U_inf
         "Trail": 0.1 * L / U,                                   # s: streak length |v| Trail, 0.1 L at U_inf
-        "Radius": L / 400.0,
+        "Radius": L / 600.0,
     }
 
 

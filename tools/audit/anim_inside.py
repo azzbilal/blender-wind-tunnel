@@ -53,8 +53,9 @@ scene = bpy.context.scene
 scene.render.fps, scene.render.fps_base = 24, 1.0
 scene.frame_start, scene.frame_end = 1, frames
 if field.is_dir():
+    scene.render.fps = 12                              # the T1 video rate (tools/audit/t1_scene.py)
     voxel = float(np.load(field / "flow_0001.npz")["voxel"])
-    viz3d.build_transient(field, cube, frames, 24, 2.0, 20.0, voxel)
+    viz3d.build_transient(field, cube, frames, scene.render.fps, 2.0, 20.0, voxel)
     smoke = bpy.data.objects[viz3d.SMOKE]
 else:
     tmp = Path(tempfile.mkdtemp())
