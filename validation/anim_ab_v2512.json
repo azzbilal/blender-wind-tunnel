@@ -30,6 +30,10 @@
     "target": 0,
     "pass": true,
     "min_gap_to_body_m": 0.00073,
+    "min_gap_metric": "per-axis (Chebyshev) gap, max over axes of (|x_i| - 1 m), NOT the straight-line distance to the box surface; added 2026-10-23 after review observation O1",
+    "min_gap_chebyshev_m": 0.000734,
+    "min_gap_euclidean_m": 0.000984,
+    "recount": {"date": "2026-10-23", "script": "tools/audit/anim_inside.py FIELD.npz 192 (headless factory-startup Blender 5.2, repo add-on code, field.npz sha1 5868c18e)", "particle_frames": 2477893, "inside": 0, "particles_alive_max": 19571, "min_gap_chebyshev_m": 0.000734, "min_gap_euclidean_m": 0.000984, "note": "the Stage 4 count ran through the MCP in the live scene and was not committed; this script reproduces it exactly"},
     "solid_mask_nearest_node_count_not_gated": {"particle_frames": 11518, "frames_with_hits": 151, "max_per_frame": 110, "max_gap_outside_body_m": 0.025, "note": "the closed mask (issue e fix) marks the surface nodes solid, so nearest node flags particles up to half a voxel (0.025 m) outside the wall; none of them is inside the body"}
   },
   "smoke_vs_rk4_drift": {
