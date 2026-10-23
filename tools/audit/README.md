@@ -11,6 +11,7 @@ These run **inside WSL Ubuntu** on a solved, reconstructed case. They import
 | `step2_tracer.sh CASE...` | FIX_PLAN step 2 Stage 5: in `~/wind_tunnel/_step2/<CASE>` (written by `case3d.write_case`), the gated `Allrun`, then the same run continued without the gate to 2000 and exported again. Keeps `forces_gated.json`, `log.gated`, `forces_2000.json`. |
 | `step2_check.py CASE [--ref CD]` | FIX_PLAN step 2: trigger iteration from `log.gated`, stop lag, offline gate on the merged history (must agree), gate verdict at 400 and 800, reported window means vs the 1801-2000 mean, and the force-first alternative (grill Q5) scored on the same history. Stdlib only, uses the case's `convergence.py`. |
 | `anim_inside.py FIELD.npz FRAMES [OUT.json]` | Runs on **Windows** in headless Blender (`--background --factory-startup --python-exit-code 1 --python ... --`). Shipped WT Smoke in solved mode on a 2 m cube, frames played in order; particle-frames inside the body box (target 0) and the minimum gap outside it, Chebyshev (per-axis) and Euclidean. |
+| `t1_costtest.sh NAME MAXCO NOUTER NCORR` | TRANSIENT T1 Q3: 25-step pimpleFoam cost test (potentialFoam start, backward, 24 ranks) on a copy of `~/wind_tunnel/_anim/Cube` in `~/wind_tunnel/_t1/cost_NAME`; prints steps, Courant, deltaT, ExecutionTime, continuity error, last forceCoeffs rows. Cost per step = (ExecutionTime at step 25 minus at step 5) / 20. |
 | `extend.sh` | Continues the `_audit` copies of Cube and Cone from 400 to 1200 iterations, writing every 50. |
 
 Typical use from Git Bash on Windows:

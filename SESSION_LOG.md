@@ -49,7 +49,7 @@ locked answers, take as given); `tools/audit/t1_costtest.sh` (the dictionaries t
 the controlDict, fvSchemes, fvSolution writers and the Allrun builder; `wind_tunnel/export_field.py`
 (frame export, solid mask once); `wind_tunnel/anim.py`; in `wind_tunnel/viz3d.py` `write_vdb`,
 `load_volume`, `build_slice`, `build_smoke`, `build_label`/label tree.
-Facts established: the table above; v2512 function objects with adjustableRunTime shorten deltaT
+Facts established: the table above; v2512 `postProcessing/forceCoeffs/0/coefficient.dat` columns are Time, Cd, Cd(f), Cd(r), Cl, Cl(f), Cl(r), CmPitch, CmRoll, CmYaw, Cs, Cs(f), Cs(r) (liftDir +Z, dragDir +X), so read the Q4 signals by header name, not position; v2512 function objects with adjustableRunTime shorten deltaT
 to hit their write times; mpirun needs `--oversubscribe` for 24 ranks (as case3d does).
 STAGE 3 TDD (red commit, then green): pure transient case writer per the spec; frame index to
 physical time mapping (t = k/60 s, t U/L = k/6); VDB sequence naming and loading; issue i smoke
