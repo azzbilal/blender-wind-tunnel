@@ -93,3 +93,26 @@ Only 3 and 4 can FAIL; 1 and 2 are reports.
   the only colour code. Built as smoke tree inputs with tests in Stage 3, judged at the Stage 4 HIL.
 - h (section view, hide body and smoke on the camera side of the slice) stays open for a later slice
   (needs a clipping design).
+
+## Stage 3 and 4 notes (2026-10-24, not grill decisions; recorded so the reviewer sees them)
+
+- **Write format ASCII, not binary** (deviation from Q3 "binary"): the frame export reuses the tested
+  ASCII readers of `export_field.py` instead of a new binary parser. Physics unchanged; disk is
+  larger (about 20 MB per frame over 24 processors, 948 GB free).
+- **No reconstructPar per frame**: `export_field.py --frames` gathers U and p straight from
+  `processor*/<t>/` through each processor's `cellProcAddressing` (written with the source mesh), so
+  frames come out in the reconstructed mesh's cell order. The solid mask and the IDW weights
+  (int32 index, float32 weight, 4 nearest cell centres, as the steady export) are computed once.
+  p_inf (inlet-patch area mean) is taken per frame, since it moves with the transient.
+- **Frame directories are matched by time with a tolerance** (`transient.frame_from_time`,
+  |t 60 - k| < 1e-3), never by name: time names have 8 significant digits (0.016666667).
+- **Smoke time**: one CFD frame interval (1/60 s) per scene frame (Time Scale = 24/60 = 0.4), split
+  into substeps of at most one voxel at 1.5 U_inf (10 substeps for h = 0.05 m). The field is held at
+  scene frame k's VDB through the step from k-1 to k (piecewise constant in time).
+- **Stage 4 re-measure** with the Stage 3 writer (`~/wind_tunnel/_t1/cost50`, 50 steps, same
+  dictionaries as the full run except stopAt/writeControl): potentialFoam in parallel ran 6 Phi
+  solves and ended normally (continuity error 1.5e-4, interpolated velocity error 3.6e-5, its own
+  measures); no FATAL, warning or NaN in either log. Courant max 1.80 at step 1, 1.00 +- 0.005 after.
+  Final-corrector sum local max 2.8e-12 over 50 steps, frame 1 1.4e-12. Cost 0.522 s/step (steps 10
+  to 50), dt about 6.3e-4 s, so about 3200 steps and about 28 min of solve for 2 s. Cd 1.62 at
+  t = 0.031 s (impulsive-start transient, not a result).

@@ -25,7 +25,7 @@ from pathlib import Path
 import bpy
 import numpy as np
 
-from . import anim
+from . import anim, transient
 from .viz import SPEED_RANGE, SPEED_STOPS, _emission_material, _fresh_mesh, _math, _ramp
 
 FLOW, RAKE, SMOKE, SLICE = "WT Flow", "WT Rake", "WT Smoke", "WT Slice"
@@ -86,10 +86,20 @@ def _link(ob, collection=None):
     return ob
 
 
-def load_volume(vdb: Path):
+def load_volume(vdb: Path, sequence: int | None = None):
+    """WT Flow from one VDB, or with sequence = n from flow_0001.vdb .. flow_000n.vdb (scene frame k
+    loads frame k, transient.vdb_sequence)."""
     vol = bpy.data.volumes.get(FLOW) or bpy.data.volumes.new(FLOW)
     vol.filepath = str(vdb)
-    vol.grids.load()
+    seq = transient.vdb_sequence(sequence) if sequence else {"is_sequence": False}
+    for key, v in seq.items():
+        setattr(vol, key, v)
+    if sequence:
+        # The original datablock has no scene frame (a load would look for flow_0000.vdb and keep the
+        # failure); each evaluated frame loads its own file.
+        vol.grids.unload()
+    else:
+        vol.grids.load()
     ob = bpy.data.objects.get(FLOW) or _link(bpy.data.objects.new(FLOW, vol))
     ob.data = vol
     ob.display_type = "BOUNDS"
@@ -137,7 +147,7 @@ def build_rake(lo, hi, L):
     return ob
 
 
-def build_slice(box_lo, box_hi, body_lo, body_hi):
+def build_slice(box_lo, box_hi, body_lo, body_hi, voxel=None):
     """WT Slice through the body centre (normal Y), plus WT Legend and WT Label that read it."""
     cy = (body_lo[1] + body_hi[1]) / 2
     sx, sz = box_hi[0] - box_lo[0], box_hi[2] - box_lo[2]
@@ -146,7 +156,7 @@ def build_slice(box_lo, box_hi, body_lo, body_hi):
     ob.rotation_euler = (0.0, 0.0, 0.0)
     vol = bpy.data.volumes.get(FLOW)
     grid = vol.grids.get("cp") if vol is not None else None
-    h = float(grid.matrix_object[0][0]) if grid is not None else (box_hi[0] - box_lo[0]) / 170
+    h = voxel or (float(grid.matrix_object[0][0]) if grid is not None else (box_hi[0] - box_lo[0]) / 170)
     for key, v in (("wt_grid_lo", box_lo), ("wt_grid_hi", box_hi), ("wt_body_lo", body_lo),
                    ("wt_body_hi", body_hi), ("wt_rest", centre)):
         ob[key] = [float(x) for x in v]
@@ -393,6 +403,11 @@ def _smoke_tree():
     _sock(tree, "Lifetime", "NodeSocketFloat", 140.0, lo=1.0)
     _sock(tree, "Time Scale", "NodeSocketFloat", 0.05, lo=0.0)
     _sock(tree, "Radius", "NodeSocketFloat", 0.01, lo=0.0)
+    # Time-resolved field (transient.plain_smoke_inputs): white, the frame step split into substeps,
+    # each particle drawn as a streak |v| Trail long behind it (Trail 0: a dot).
+    _sock(tree, "Plain", "NodeSocketBool", False)
+    _sock(tree, "Substeps", "NodeSocketInt", 1, lo=1)
+    _sock(tree, "Trail", "NodeSocketFloat", 0.0, lo=0.0)
     _sock(tree, "Geometry", "NodeSocketGeometry", out=True)
     gi = tree.nodes.new("NodeGroupInput")
     go = tree.nodes.new("NodeGroupOutput")
@@ -451,8 +466,10 @@ def _smoke_tree():
     tree.links.new(sim_in.outputs["Geometry"], join.inputs["Geometry"])
     tree.links.new(born, join.inputs["Geometry"])
 
-    # Velocity: the solved field (midpoint rule) or the plain wind.
-    dt = _math(tree, "MULTIPLY", sim_in.outputs["Delta Time"], gi.outputs["Time Scale"])
+    # Velocity: the solved field (midpoint rule) or the plain wind; the frame step dt is taken in
+    # Substeps equal steps inside a Repeat Zone.
+    dt = _math(tree, "DIVIDE", _math(tree, "MULTIPLY", sim_in.outputs["Delta Time"], gi.outputs["Time Scale"]),
+               gi.outputs["Substeps"])
     v1 = _sample(tree, vel_grid, P(), "VECTOR")
     mid = _vmath(tree, "ADD", P(), _vmath(tree, "SCALE", v1, scale=_math(tree, "MULTIPLY", dt, 0.5)))
     v2 = _sample(tree, vel_grid, mid, "VECTOR")
@@ -472,12 +489,19 @@ def _smoke_tree():
     slide = _vmath(tree, "SUBTRACT", v, _vmath(tree, "SCALE", away, scale=into))
     v_eff = _vsw(tree, _bool(tree, "AND", _bool(tree, "AND", near.outputs["Is Valid"], band), preview), v, slide)
 
+    rep_in = tree.nodes.new("GeometryNodeRepeatInput")
+    rep_out = tree.nodes.new("GeometryNodeRepeatOutput")
+    rep_in.pair_with_output(rep_out)
+    tree.links.new(gi.outputs["Substeps"], rep_in.inputs["Iterations"])
+    tree.links.new(join.outputs["Geometry"], rep_in.inputs["Geometry"])
     move = tree.nodes.new("GeometryNodeSetPosition")
-    tree.links.new(join.outputs["Geometry"], move.inputs["Geometry"])
+    tree.links.new(rep_in.outputs["Geometry"], move.inputs["Geometry"])
     tree.links.new(_vmath(tree, "SCALE", v_eff, scale=dt), move.inputs["Offset"])
+    tree.links.new(move.outputs["Geometry"], rep_out.inputs["Geometry"])
     speed_now = _math(tree, "DIVIDE", _vmath(tree, "LENGTH", v_eff),
                       _math(tree, "MAXIMUM", _vmath(tree, "LENGTH", gi.outputs["Wind"]), 1e-6))
-    stored = _store(tree, move.outputs["Geometry"], "speed", speed_now)
+    stored = _store(tree, _store(tree, rep_out.outputs["Geometry"], "speed", speed_now), "vel", v_eff,
+                    dtype="FLOAT_VECTOR")
 
     # Preview only: anything that still ended up inside goes back onto the surface.
     near2 = tree.nodes.new("GeometryNodeProximity")
@@ -514,11 +538,50 @@ def _smoke_tree():
     ico = tree.nodes.new("GeometryNodeMeshIcoSphere")
     ico.inputs["Subdivisions"].default_value = 1
     tree.links.new(gi.outputs["Radius"], ico.inputs["Radius"])
+    # Streak: a unit-long thin cylinder along +X from x = -1 to 0, turned along the particle's velocity
+    # and scaled to |v| Trail (at least two radii), so it ends at the particle.
+    cyl = tree.nodes.new("GeometryNodeMeshCylinder")
+    cyl.inputs["Vertices"].default_value = 6
+    cyl.inputs["Depth"].default_value = 1.0
+    tree.links.new(gi.outputs["Radius"], cyl.inputs["Radius"])
+    cxf = tree.nodes.new("GeometryNodeTransform")
+    tree.links.new(cyl.outputs["Mesh"], cxf.inputs["Geometry"])
+    cxf.inputs["Rotation"].default_value = (0.0, math.pi / 2, 0.0)
+    cxf.inputs["Translation"].default_value = (-0.5, 0.0, 0.0)
+    streak = _cmp(tree, "GREATER_THAN", gi.outputs["Trail"], 0.0)
+    shape = tree.nodes.new("GeometryNodeSwitch")
+    shape.input_type = "GEOMETRY"
+    tree.links.new(streak, shape.inputs["Switch"])
+    tree.links.new(ico.outputs["Mesh"], shape.inputs["False"])
+    tree.links.new(cxf.outputs["Geometry"], shape.inputs["True"])
+    vel = _named(tree, "vel", "FLOAT_VECTOR")
+    align = tree.nodes.new("FunctionNodeAlignRotationToVector")
+    align.axis = "X"
+    tree.links.new(vel, align.inputs["Vector"])
+    length = _math(tree, "MAXIMUM", _math(tree, "MULTIPLY", _vmath(tree, "LENGTH", vel), gi.outputs["Trail"]),
+                   _math(tree, "MULTIPLY", gi.outputs["Radius"], 2.0))
+    sx = tree.nodes.new("ShaderNodeCombineXYZ")
+    tree.links.new(length, sx.inputs["X"])
+    sx.inputs["Y"].default_value = sx.inputs["Z"].default_value = 1.0
+    one = tree.nodes.new("ShaderNodeCombineXYZ")
+    one.inputs["X"].default_value = one.inputs["Y"].default_value = one.inputs["Z"].default_value = 1.0
     inst = tree.nodes.new("GeometryNodeInstanceOnPoints")
     tree.links.new(sim_out.outputs["Geometry"], inst.inputs["Points"])
-    tree.links.new(ico.outputs["Mesh"], inst.inputs["Instance"])
+    tree.links.new(shape.outputs["Output"], inst.inputs["Instance"])
+    tree.links.new(_vsw(tree, streak, one.outputs[0], sx.outputs[0]), inst.inputs["Scale"])
+    rot = tree.nodes.new("GeometryNodeSwitch")
+    rot.input_type = "ROTATION"
+    tree.links.new(streak, rot.inputs["Switch"])
+    tree.links.new(align.outputs["Rotation"], rot.inputs["True"])
+    tree.links.new(rot.outputs["Output"], inst.inputs["Rotation"])
+    msw = tree.nodes.new("GeometryNodeSwitch")
+    msw.input_type = "MATERIAL"
+    tree.links.new(gi.outputs["Plain"], msw.inputs["Switch"])
+    msw.inputs["False"].default_value = _emission_material("WT Smoke", "speed", 0.3, 1.9, 2.5, instancer=True)
+    msw.inputs["True"].default_value = _emission_material("WT Smoke Plain", "speed", 0.0, 1.0, 1.0,
+                                                          instancer=True, stops=[(0.0, (1.0, 1.0, 1.0))])
     setm = tree.nodes.new("GeometryNodeSetMaterial")
-    setm.inputs["Material"].default_value = _emission_material("WT Smoke", "speed", 0.3, 1.9, 2.5, instancer=True)
+    tree.links.new(msw.outputs["Output"], setm.inputs["Material"])
     tree.links.new(inst.outputs["Instances"], setm.inputs["Geometry"])
     tree.links.new(setm.outputs["Geometry"], go.inputs["Geometry"])
     _layout(tree)
@@ -567,6 +630,34 @@ def build_smoke(body, L, speed_inf, fps, use_field=False):
     _set_input(mod, tree, "Lifetime", 140.0)
     tune_smoke(mod, L, speed_inf, fps)
     return ob
+
+
+def build_transient(frames_dir: Path, body, n_frames, scene_fps, L, speed_inf, voxel, rho=1.225):
+    """TRANSIENT T1 scene objects: flow_kkkk.vdb from every flow_kkkk.npz (written once), WT Flow as a
+    VDB sequence, WT Slice through the body centre in Cp mode, the label with flow time, and plain
+    smoke advected through the time-varying field. Returns (grid lo, grid hi)."""
+    frames_dir = Path(frames_dir)
+    lo = hi = None
+    for k in range(1, n_frames + 1):
+        npz, vdb = frames_dir / transient.frame_name(k, "npz"), frames_dir / transient.frame_name(k, "vdb")
+        if not vdb.exists() or vdb.stat().st_mtime < npz.stat().st_mtime:
+            lo, hi, _ = write_vdb(npz, vdb, rho)
+    if lo is None:
+        d = np.load(frames_dir / transient.frame_name(1, "npz"))
+        lo = np.array(d["origin"], float)
+        hi = lo + float(d["voxel"]) * (np.array(d["U"].shape[:3]) - 1)
+    load_volume(frames_dir / transient.frame_name(1, "vdb"), sequence=n_frames)
+    body_lo = [min(v[i] for v in (body.matrix_world @ c.co for c in body.data.vertices)) for i in range(3)]
+    body_hi = [max(v[i] for v in (body.matrix_world @ c.co for c in body.data.vertices)) for i in range(3)]
+    sl = build_slice(lo, hi, body_lo, body_hi, voxel=voxel)
+    set_input(sl.modifiers["Wind Tunnel"], "Pressure", True)
+    label = bpy.data.objects[LABEL].modifiers["Wind Tunnel"]
+    set_input(label, "CFD fps", float(transient.FPS_CFD))
+    set_input(label, "U", float(speed_inf))
+    sm = build_smoke(body, L, speed_inf, scene_fps, use_field=True)
+    for key, v in transient.plain_smoke_inputs(L, speed_inf, scene_fps, voxel).items():
+        set_input(sm.modifiers["Wind Tunnel"], key, v)
+    return lo, hi
 
 
 def set_input(mod, name, value):
@@ -712,6 +803,11 @@ def _label_string(tree, axis_letter, d, r, pressure):
                 w=_ssw(tree, pressure, "speed/U_inf", "Cp"))
 
 
+def _time_string(tree, t, tul):
+    """transient.time_label built in nodes: t = flow time (s), tul = t U / L."""
+    return _fmt(tree, "t = {t:.3f} s (t U/L = {r:.2f})", t=t, r=tul)
+
+
 def _text(tree, string, size, at, align="LEFT"):
     """Text as a filled mesh in the XZ plane (reads from -Y), baseline starting at `at`."""
     sc = tree.nodes.new("GeometryNodeStringToCurves")
@@ -808,7 +904,9 @@ def _label_tree():
     tree, gi, go, info = _overlay_tree("WT Label", [
         ("Axis", "NodeSocketInt", 1, False, 0, 2), ("Centre", "NodeSocketVector", (0.0, 0.0, 0.0)),
         ("L", "NodeSocketFloat", 1.0), ("Origin", "NodeSocketVector", (0.0, 0.0, 0.0)),
-        ("Text Size", "NodeSocketFloat", 0.18)])
+        ("Text Size", "NodeSocketFloat", 0.18),
+        # Time-resolved field: scene frame k is flow time k / CFD fps (0 = steady, no time shown).
+        ("CFD fps", "NodeSocketFloat", 0.0, False, 0.0), ("U", "NodeSocketFloat", 20.0)])
     pressure, _, _ = _slice_inputs(tree, info.outputs["Geometry"])
 
     def comp(vec):
@@ -818,7 +916,14 @@ def _label_tree():
     d = _math(tree, "SUBTRACT", comp(info.outputs["Location"]), comp(gi.outputs["Centre"]))
     r = _math(tree, "DIVIDE", d, gi.outputs["L"])
     letter = _pick(tree, gi.outputs["Axis"], ["x", "y", "z"], "STRING")
-    text = _text(tree, _label_string(tree, letter, d, r, pressure), gi.outputs["Text Size"], gi.outputs["Origin"])
+    # transient.time_label + " | " + anim.label_text
+    t = _math(tree, "DIVIDE", tree.nodes.new("GeometryNodeInputSceneTime").outputs["Frame"],
+              _math(tree, "MAXIMUM", gi.outputs["CFD fps"], 1e-6))
+    tul = _math(tree, "DIVIDE", _math(tree, "MULTIPLY", t, gi.outputs["U"]), gi.outputs["L"])
+    when = _ssw(tree, _cmp(tree, "GREATER_THAN", gi.outputs["CFD fps"], 0.0), "",
+                _fmt(tree, "{a} | ", a=_time_string(tree, t, tul)))
+    full = _fmt(tree, "{a}{b}", a=when, b=_label_string(tree, letter, d, r, pressure))
+    text = _text(tree, full, gi.outputs["Text Size"], gi.outputs["Origin"])
     setm = tree.nodes.new("GeometryNodeSetMaterial")
     setm.inputs["Material"].default_value = _materials()[2]
     tree.links.new(text, setm.inputs["Geometry"])
