@@ -85,3 +85,23 @@ Grill answers (Bilal, 2026-10-24), locked before any code. Measurements: `valida
   updated to these gates at close.
 - Probe also meshes Suzanne (mesh only, no solve): cell count, layer coverage, checkMesh at featureAngle
   60 vs 120, to check irregular and concave shapes. If Suzanne fails checkMesh at 120: stop and show Bilal.
+
+## Amendments after the probes (2026-10-24)
+
+A1 (Q2 layer count, locked): n = min(n_half, n_depth), n_depth = floor(ln(1 + Delta (r - 1) / h1) / ln r), the
+largest n whose stack stays at or under one surface cell Delta. h1 3.89 mm, Delta 41.7 mm: n = min(8, 5) = 5,
+stack 35 mm, last-layer jump 3.7x (v2512's annotated example uses finalLayerThickness 0.3, about 3.3x).
+Evidence (round 2): 960-triangle UV sphere 62 % coverage at n 8 (93 mm, 2.2 Delta) but 99.2 % at n 5; 5120-triangle
+icosphere 100 % at n 8 and n 5. Faceting, not stack depth alone, breaks deep stacks.
+
+## Open issues (logged, not in this slice)
+
+- Coarse-STL warning in the add-on: compare STL edge length or facet angle with the local surface cell, offer
+  an optional subdivide before export. Evidence: icosphere (median edge 0.076 m) 100 % vs UV sphere 32 x 16
+  (0.196 m) 62 % at n 8 (validation/step3_wall_v2512.json, probe_round2).
+- UV sphere zero-layer faces are not at the poles: 48 faces at 67 and 79 deg from the poles, next to the ring
+  edges at 22.5 and 11.25 deg latitude; cause not resolved.
+- Faces where snappy reduces the layer count get a thicker first cell (sphere n 5: 2.6 % of area, d up to
+  9.9 mm vs 1.94 mm, y+ up to about 5x target); caught by the y+ gate, not by face coverage.
+- Suzanne: layers collapse at any depth (30 to 35 % faces extruded, tet quality failures at iteration 1);
+  curvatureLevel (48 0 4 -1) raised no face to level 4; checkMesh fails by 2 pre-existing skew faces (4.70).

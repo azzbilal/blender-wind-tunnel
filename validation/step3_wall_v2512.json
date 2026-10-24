@@ -1768,6 +1768,112 @@
    "UV sphere 32 x 16 is fine with shallower stacks: n 5 (35 mm, 0.84 cells): 99.2 %, 4.56/5, 96.2 %; n 3: 99.2 %, 2.88/3. The 32 faces lost at every depth fail tet quality at layer iteration 0; 32 = the segment count, so probably the pole fans (not located).",
    "Level 4 on the sphere (curvatureLevel (48 0 4 -1), n 4): 100 %, 4/4, 562778 cells (+45 % vs 388704 at level 3, n 5), 272 faces around the equator row.",
    "Suzanne: layers collapse at any depth (n 5 at level 3: 34.8 %, 0.64/5; level 4 setting, n 4: 30.0 %), iteration 1 tet quality failures 1613 and 1752. curvatureLevel (48 0 4 -1) did not raise any Suzanne face to level 4 (levels and cells unchanged): likely the 968-triangle mesh's edges exceed the feature angle, where v2512 resets curvature (refinementSurfaces.C:1043-1131); not verified per face. checkMesh fails by the same 2 pre-existing skew faces (4.70)."
-  ]
+  ],
+  "uv_sphere_bare_faces": {
+   "method": "Sphere_L3_n5 rerun serially with writeFlags (layerFields): snappy's per-face nSurfaceLayers and thickness on the body patch (~/wind_tunnel/_step3/probe2/Sphere_L3_n5_lf); serial run extrudes 6064/6112 (parallel 6080/6112), same table 4.56/5, 96.2 %",
+   "layer_count_histogram": {
+    "0": 48,
+    "1": 160,
+    "2": 280,
+    "3": 312,
+    "4": 368,
+    "5": 4944
+   },
+   "zero_layers": {
+    "faces": 48,
+    "area_frac": 0.0081,
+    "angle_from_pole_deg": [
+     67,
+     79
+    ],
+    "north": 24,
+    "south": 24,
+    "d_mm": [
+     6.32,
+     15.08
+    ],
+    "thickness_mm": [
+     0.0,
+     0.0
+    ]
+   },
+   "thick_first_cell_d_gt_5.8mm": {
+    "faces": 192,
+    "area_frac": 0.0341,
+    "angle_from_pole_deg": [
+     64,
+     67,
+     69,
+     77,
+     79,
+     82
+    ],
+    "north": 96,
+    "south": 96,
+    "d_mm": [
+     5.85,
+     15.08
+    ],
+    "thickness_mm": [
+     0.0,
+     18.2
+    ]
+   },
+   "thick_first_cell_with_layers": {
+    "faces": 144,
+    "area_frac": 0.026,
+    "angle_from_pole_deg": [
+     64,
+     67,
+     69,
+     77,
+     79,
+     82
+    ],
+    "north": 72,
+    "south": 72,
+    "d_mm": [
+     5.85,
+     9.92
+    ],
+    "thickness_mm": [
+     7.5,
+     18.2
+    ]
+   },
+   "near_pole_lt_15deg": {
+    "faces": 240,
+    "area_frac": 0.0344,
+    "angle_from_pole_deg": [
+     2,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     12,
+     13,
+     14,
+     15
+    ],
+    "north": 120,
+    "south": 120,
+    "d_mm": [
+     1.94,
+     1.94
+    ],
+    "thickness_mm": [
+     35.1,
+     35.1
+    ]
+   },
+   "conclusion": [
+    "NOT the pole fans: the 48 zero-layer faces sit 67 and 79 deg from the poles (24 north, 24 south), next to the STL ring edges at 22.5 and 11.25 deg latitude; both pole caps (< 15 deg) carry all 5 layers, d 1.94 mm. Cause (facet kink or background-grid angle) not resolved.",
+    "Faces with fewer layers get a THICKER first cell: 144 faces (2.6 % of area) with 1 to 4 layers have d 5.85 to 9.92 mm (target 1.94): snappy keeps the smoothed point thickness (7.5 to 18.2 mm) and divides it over fewer layers. Expected y+ there up to about 5x the target (about 500 at sphere u_tau); with the bare faces 3.4 % of area, inside the 10 % y+ gate allowance."
+   ]
+  }
  }
 }
