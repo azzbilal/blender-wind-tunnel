@@ -1,100 +1,141 @@
 # Session log
 
-Current state and the NEXT prompt only. Every earlier entry, including the 2026-10-24 "FIX_PLAN step 3, Stage A
-bundle done, amendments D1 to D3 locked, stopped before Stage B" entry that this one supersedes, is kept verbatim in
-`docs/archive/session_log_2026-10.md`.
+Current state and the NEXT prompt only. Every earlier entry, including the 2026-10-24 "FIX_PLAN step 3, Stage B
+done (D1 and D2 coded, three re-runs recorded), stopped before Stage 5" entry that this one supersedes, is kept
+verbatim in `docs/archive/session_log_2026-10.md`.
 
-## 2026-10-24: FIX_PLAN step 3, Stage B done (D1 and D2 coded, three re-runs recorded), stopped before Stage 5
+## 2026-10-24: FIX_PLAN step 3 closed (Stage 5 and 6), add-on 0.7.0 deployed; project moves to the PORTFOLIO slice
 
-Work is on main. Add-on code carries D1 and D2 but is still version 0.6.1 and NOT deployed (Stage 5 does both).
-Stopped at the Stage B / Stage 5 boundary for the token budget.
+Work is on main. Step 3 is closed without a separate review session (Bilal's decision, 2026-10-24, recorded in
+FIX_PLAN step 3). The project is ending as a GitHub portfolio piece: FIX_PLAN steps 4 to 7 are documented next
+steps, not scheduled work. The next and last slice is PORTFOLIO (NEXT PROMPT below).
 
-### Done (commits 5499768, e7b538e, 4f8f097, then this handoff)
-- D1 (5499768): `case3d.PRESETS = {"COARSE": ((3, 3), 2, 6), "MEDIUM": ((4, 4), 2, 8)}`, used by
-  `__init__.start_run3d`; `snappy_dict` writes `body { level (lo2 lo2); patchInfo ...}` from `surface_levels[1]`
-  whatever `surface_levels[0]` is, no `curvatureLevel`; `Setup3D.surface_levels` default (4, 4). h1 3.89 mm and
-  5 layers (COARSE) unchanged. Tests: `test_uniform_body_level`, `test_presets`, old (2 3)/(3 4) tests moved.
-- D2 (e7b538e): `export_field.yplus_record(yplus, A, d, y_c=None)` returns `y_c`, `gt300_thick_first_cell`
-  (y+ > 300 and d > 2 y_c), `gt300_design_first_cell` (y+ > 300 and d <= 2 y_c), None for both without y_c; no
-  `u_tau_mean`. `wall_record(..., y_c)`; Allrun passes `--y-c {y_c:.6g}` (1.94301 mm at L 2 m, 20 m/s); `--remeshed`
-  and `forces["remeshed"]` gone; `forces["wall"]["u_tau_ref"]` kept. `results.wall_lines` adds a row under the
-  y+ FAIL row, "Cause: cut layers (N % of area)" when thick >= design, else "Cause: u_tau > sizing (N % of area)",
-  none when the split keys are missing (old forces.json). `results.remesh_u_tau`, the `__init__` re-mesh block and
-  `start_run3d(u_tau=...)` deleted; `Setup3D.u_tau` kept as a plain sizing override (audit scripts).
-  `tools/blender_smoke.py` fixture uses the new keys and checks the cause row; `step3_tracer.py` has no re-mesh,
-  COARSE levels from `case3d.PRESETS`, `--suffix`, writes `_step3/tracer<suffix>.json` after every body.
-- Tests: 127 run, OK (2 expected failures, pre-existing). Headless smoke check (repo source, before deploy):
-  `ok: true`, FAIL row ERROR icon, cause row "Cause: cut layers (15 % of area)", none on the pass.
-- Stage B re-runs (4f8f097, `validation/step3_wall_v2512.json` key `stageB_rerun_2026_10_24`, raw summaries
-  in WSL `~/wind_tunnel/_step3/tracer_d1.json`, cases `_step3/run_<body>_d1`).
+### Done (commit 24ac156, then this handoff)
+- Tests: 127 run, OK (2 expected failures, pre-existing).
+- Version 0.6.1 -> 0.7.0 in `wind_tunnel/blender_manifest.toml` and `bl_info`; `py tools/deploy.py` (14 files,
+  `dist/wind_tunnel.zip`); headless smoke check `ok: true`, `version` [0, 7, 0], wall panel pass row and FAIL row
+  with "Cause: cut layers (15 % of area)". Deployed twice (the second after the docstring edit), same result.
+- README: new subsection "Wall treatment (v0.7.0)" under "3D, any closed mesh": y+ target 100 at the first cell
+  centre, h1 = 2 y_c in metres, n = min(n_half, n_depth), uniform body level (3 3) COARSE / (4 4) MEDIUM, the two
+  gates, the cause row, no automatic re-mesh (the one tried took the cone 82.0 -> 75.5 %), cube and cone Stage B
+  numbers stated as mesh-quality checks, not a comparison with experiment, the sphere's state at Re 2.67e6 (no
+  steady state on the gate-passing mesh, no Cd). The drag-crisis Re (about 3e5 to 4e5) is from memory and says so.
+- FIX_PLAN step 3: amendments D1 to D3 summarised, final acceptance (both gates on every body re-run) with the
+  Stage B table, and the note that steps 4 to 7 are documented next steps.
+- `docs/reference/step3_wall_spec.md` D2: note that the "0 %" design-height share held for the five runs listed;
+  the Stage B sphere has 0.15 % (`gt300_design_first_cell` 0.0015, thick share 4.30 %), the first nonzero one,
+  from the unconverged snapshot at 3000, so not evidence of a u_tau-driven failure; cube and cone Stage B 0 %.
+- `results.wall_lines` docstring names the D2 cause row and the rule (thick >= design gives "cut layers").
 
-### Stage B results (COARSE, body level (3 3), 24 ranks, cap 3000, step 2 gate, 2026-10-24)
+### Numbers (Stage B, COARSE, body level (3 3), 24 ranks, cap 3000, step 2 gate, 2026-10-24)
 
 | | Cube | Cone | Sphere |
 |---|---|---|---|
 | Cells | 437,192 | 383,135 | 388,788 |
 | Gate | converged at 786 | converged at 716 | not converged at 3000 (D3) |
 | Cd window mean | 1.1448 (step 2 1.1498, -0.43 %) | 0.5846 (step 2 0.5833, +0.23 %) | none reported |
-| Cd band | 0.33 % | 0.23 % | 17.7 %, p residual 1.0e-2 |
-| Layer coverage | 100 % | 98.4 % | 99.2 % |
-| Mean layers / 5, thickness % | 4.22, 90.9 % | 4.26, 91.2 % | 4.56, 96.2 % |
-| y+ min / mean / max | 3.9 / 55 / 303 | 6.8 / 113 / 1491 | 7.7 / 129 / 1191 |
-| y+ <= 300 (gate 90 %) | 99.8 % | 96.95 % (was 82.0 %) | 95.6 % (snapshot at 3000) |
-| 30 < y+ < 300 band | 89.8 % | 94.3 % | 92.6 % |
+| y+ <= 300 (gate 90 %) | 99.8 % | 96.95 % (Stage 4 82.0 %) | 95.6 % (snapshot) |
+| Layer coverage (gate 90 %) | 100 % | 98.4 % | 99.2 % |
 | y+ > 300 split thick / design | 0.18 / 0 % | 3.05 / 0 % | 4.30 / 0.15 % |
-| checkMesh | OK, skew 0.47, non-orth 41.5 | OK, skew 0.82, non-orth 56.8 | OK, skew 0.62, non-orth 51.6 |
-| Wall time | 319 s | 234 s | 1039 s |
 
-- Cone reproduces the Stage A V5 solve (383,044 cells, 721, Cd 0.5849, 96.9 %). Cube cells +18.3 % vs run_Cube
-  (369,664), Cd 1.1431 -> 1.1448 between the two step 3 meshes.
-- Sphere: the 0.15 % design-first-cell share is the first nonzero one (D2 stated 0 % at d <= 1.5 y_c); it is
-  from an unconverged snapshot. No Cd reported (step 2 rule, D3).
+Full table: archived entry and `validation/step3_wall_v2512.json` key `stageB_rerun_2026_10_24`.
 
-### Locked decisions
-Unchanged: D1, D2, D3 in `docs/reference/step3_wall_spec.md` (see the archived entry's table).
+### No REVIEWER PROMPT
+Skipped by Bilal's decision (2026-10-24). The review items that the previous NEXT PROMPT listed (layer height vs
+nearWallDist, Cf citation status, band and y+ <= 300 fractions recomputed from the yPlus field, coverage from
+log.snappyHexMesh, the cut-layer mechanism against snappyLayerDriver.C:4171-4181, the D2 split recomputed, the
+sphere attribution, the `level (lo2 lo2)` writer ignoring `surface_levels[0]`) stay unchecked by an independent
+session; the README and FIX_PLAN must not imply otherwise.
 
 ### Open issues
-- Stage 5 and 6 not done: no deploy, no version bump, no README note, FIX_PLAN step 3 acceptance text not yet
-  updated to the two gates (spec Q5), no review prompt.
-- `tools/audit/step3_diag.py` variants that set `surface_levels (2, 3)` no longer reproduce the Stage A V0 mesh,
-  because `snappy_dict` now writes (lo2 lo2); the Stage A record stands as measured with the earlier code.
-- Carried: URANS fallback with time-averaged forces (D3); guarded u_tau re-mesh only on a u_tau-driven failure
-  (D2); MEDIUM cost under D1 not measured; coarse-STL warning; UV sphere zero-layer faces; Suzanne layer collapse;
-  2D `meshgen.c_grid` half y+ (FIX_PLAN step 7); T1 items k, O2, O3, c, d, g, h, f, j; ANIMATION A+B review O2.
+- Stale for a portfolio reader (PORTFOLIO item, not patched here): README banner "Status (v0.4.0): ... not yet
+  physically reliable"; README transient section "(FIX_PLAN steps 3 and 4)" where the reference comparison is now
+  step 5; FIX_PLAN title "work in this order" with no status line; `docs/ACCURACY_AUDIT.md` (v0.4.0) does not mark
+  which findings steps 1 to 3 closed; manifest tagline "Airfoil polars from OpenFOAM running in WSL" (3D is the
+  main feature now).
+- Personal strings in tracked files (`git grep -i -E "bgare|gmail|azzbilal"`, archive excluded): `CLAUDE.md:40`
+  (`C:\Users\bgare\Documents\WindTunnel`), `docs/reviews/anim_ab_review.md:13,14,169` and
+  `docs/reviews/transient_t1_review.md:17` (local temp paths), `wind_tunnel/blender_manifest.toml:9` (website
+  `https://github.com/azzbilal`). The archive has none. CLAUDE.md also holds the "Owner and how to talk to him"
+  section, the WSL user name and machine details.
+- No git remote, no LICENSE file (the manifest already says `SPDX:GPL-3.0-or-later`). `renders/` is gitignored:
+  `anim_ab_cube.mp4` 4.8 MB, `transient_t1_cube.mp4` 4.5 MB, `t1_still_030/060/120.png` about 0.9 MB each,
+  `t1_frames/`. `validation/` is 14 MB (largest `reference_case_3d_Cube/` 6.5 MB), inside GitHub limits.
+- Carried as documented next steps (FIX_PLAN 4 to 7 and logged items): domain study and blockage (4); validation
+  set against cited references, cube mesh study with Richardson extrapolation, Bernoulli check (5); cellPoint
+  sampling, cell centres from `C` (T1 O1), longer voxel grid (6); 2D far-field correction and the `meshgen.c_grid`
+  half-y+ bug (7); URANS fallback with time-averaged forces for bodies like the sphere (D3); guarded u_tau re-mesh
+  (D2); MEDIUM cost under D1 not measured; coarse-STL warning; UV sphere zero-layer faces; Suzanne layer collapse
+  and checkMesh skewness 4.70; T1 items k, O2, O3, c, d, g, h, f, j; ANIMATION A+B review O2;
+  `tools/audit/step3_diag.py` variants with `surface_levels (2, 3)` no longer reproduce the Stage A V0 mesh.
+- WSL disk: `~/wind_tunnel/_step3` (run_Cone, diag/bundle.json, `run_*_d1`) was kept for the step 3 review, which
+  will not happen; it can go unless PORTFOLIO wants cone or sphere renders from it (each `run_*_d1` holds a
+  `field.npz`). `~/wind_tunnel/_t1/Cube` likewise.
 - Pending on Bilal: `sudo apt purge -y libopenfoam openfoam-examples` (orphaned 1912).
-- Disk (WSL): `~/wind_tunnel/_step3` grows by the three `run_*_d1` cases. Keep run_Cone (predictor reference),
-  diag/bundle.json and the `run_*_d1` cases until the step 3 review; the rest can go.
 
-### NEXT PROMPT (FIX_PLAN step 3, Stage 5 close and Stage 6 handoff)
-Slice: FIX_PLAN step 3, wall treatment and surface resolution, close. Solver-side code is finished and recorded;
-this session only closes and hands off. Work on main (no worktree).
+### NEXT PROMPT (PORTFOLIO: make the repository a GitHub portfolio piece, final slice)
+Slice: PORTFOLIO. Turn this repository into a public GitHub portfolio piece that an aerospace or CFD reader can
+judge in two minutes: what it does, a picture, what is checked against what, what is not, and what comes next.
+No solver-side changes (case3d, case, meshgen, export_field, results logic) and no new runs. FIX_PLAN steps 4 to
+7 are written up as documented next steps, not done. Work on main (no worktree).
 
-STAGE 0 GATE: none new (the T1 review has no open FAIL; step 3 has no review yet).
+STAGE 0 GATE: waived. Step 3 has no review by Bilal's decision (2026-10-24, recorded in FIX_PLAN step 3); every
+earlier review in `docs/reviews/` has no open FAIL.
 
-CONTEXT TO LOAD (stay well under 60k tokens): CLAUDE.md; this entry; `docs/reference/step3_wall_spec.md` (rules
-table, gates, amendments D1 to D3); the FIX_PLAN step 3 section of `docs/FIX_PLAN.md`; the README section on 3D
-runs; `validation/step3_wall_v2512.json` key `stageB_rerun_2026_10_24` (summary only). Facts established, do not
-re-derive: the Stage B table above; D1 and D2 as coded; tests 127 OK; smoke check ok before deploy.
+CONTEXT TO LOAD (stay under 60k tokens): CLAUDE.md; this entry; `README.md`; `docs/FIX_PLAN.md`; headings and
+the "What fails" list of `docs/ACCURACY_AUDIT.md`; the file list of `docs/reviews/`, `docs/reference/`,
+`validation/` (names only, open a JSON only for a number the README quotes); `wind_tunnel/blender_manifest.toml`.
+Facts established, do not re-derive: everything in this entry (Done, Numbers, Open issues, including the personal
+strings list and media sizes); the README's 2D table is against NASA TMR (CFL3D, finest grid) and is the only
+experiment-or-reference comparison with a citation in the repo; the transient section's numbers stand.
 
-STAGE 5 CLOSE (AFK):
-1. `py -m unittest discover -s tests -v` green.
-2. Version bump 0.6.1 -> 0.7.0 in `wind_tunnel/blender_manifest.toml` and `bl_info` in `wind_tunnel/__init__.py`.
-3. `py tools/deploy.py`, then the headless smoke check (`report["version"]` must read [0, 7, 0]).
-4. README note on wall treatment: y+ target 100 at the first cell centre, h1 = 2 y_c in metres, layers
-   min(n_half, n_depth), uniform body level (3 3) COARSE / (4 4) MEDIUM, the two gates (y+ <= 300 on 90 % of the
-   area, layer coverage 90 %), the panel rows including the cause row, no automatic re-mesh, the sphere's recorded
-   state at Re 2.67e6 (no steady state on the gate-passing mesh, no Cd). No "validated".
-5. FIX_PLAN step 3 acceptance text updated to the two gates (spec Q5), with the Stage B numbers; the
-   `results.wall_lines` docstring mentions the D2 cause row.
-6. Commit with the physical quantity changed and by how much (per body: y+ <= 300 fraction and Cd change, from
-   the table above). Tell Bilal to restart Blender or toggle the add-on.
+GRILL (HIL, before any edit: one question at a time, recommendation first, wait for Bilal; lock the answers in
+`docs/reference/portfolio_spec.md`):
+- Q1 Repository name and visibility. Recommend public, a descriptive name such as `blender-openfoam-wind-tunnel`.
+  Creating the GitHub repo and pushing are Bilal's steps (outward-facing; `gh` is installed at
+  `/c/Program Files/GitHub CLI/gh` but needs his login and his go); Claude prepares the commands.
+- Q2 Licence. Recommend a LICENSE file with GPL-3.0-or-later, matching the manifest's SPDX field and Blender's
+  add-on licensing (OpenFOAM itself is GPL-3; both from memory, say so).
+- Q3 The AI-assisted workflow record (CLAUDE.md, SESSION_LOG.md, `docs/archive/`, `docs/prompts/`,
+  `docs/reviews/`). Recommend keeping them public as evidence of method (spec, grill, TDD, independent review),
+  replacing the absolute Windows user paths in the five places listed with neutral wording, keeping git history
+  as is (no rewrite). Ask separately whether the "Owner and how to talk to him" section stays.
+- Q4 Media. Recommend `docs/media/` (not ignored) with two or three PNG stills under about 1 MB each (one Cp slice,
+  one smoke still from `renders/`) and one short GIF cut from `renders/anim_ab_cube.mp4` under about 5 MB; an mp4
+  in the repo does not play inline in a README, so the full videos go to a GitHub release or stay local. Offer
+  a cone still only if Bilal wants it (needs `~/wind_tunnel/_step3/run_Cone_d1/field.npz` and a headless render,
+  the one heavy task allowed in this slice).
+- Q5 Results the README may show. Recommend: the NACA 0012 table against NASA TMR as the one cited comparison;
+  cube and cone as "both wall gates and the convergence gate pass, Cd 1.1448 and 0.5846, reference comparison is
+  FIX_PLAN step 5"; the sphere as "no steady state at Re 2.67e6, no Cd". No Hoerner, ESDU or Achenbach number
+  unless Bilal supplies the source and page; never "validated" or "in range" without a cited value.
+- Q6 Optional CI: a GitHub Actions job running `python -m unittest discover -s tests`. Recommend trying
+  ubuntu-latest (the pure modules have no bpy), falling back to windows-latest if `wsl.py` path tests need it.
+- Q7 WSL cleanup: delete `~/wind_tunnel/_step3` and `~/wind_tunnel/_t1` after Q4 is answered (recommend yes,
+  Bilal's go; keep the six original solved cases).
 
-STAGE 6 HANDOFF (AFK): SESSION_LOG entry (archive this one verbatim to `docs/archive/`), REVIEWER PROMPT to
-`docs/reviews/step3_review.md` (push: layer height vs nearWallDist, Cf citation status, band and y+ <= 300
-fractions recomputed from the yPlus field of the `run_*_d1` cases independently, coverage from log.snappyHexMesh,
-the gate passed on Cube and Cone and the sphere's failure recorded without Cd, the cut-layer mechanism against
-snappyLayerDriver.C:4171-4181, the D2 split recomputed from d and y_c, the sphere attribution and mapped run, the
-`level (lo2 lo2)` writer ignoring `surface_levels[0]`), NEXT PROMPT for FIX_PLAN step 4 (domain).
+STAGES (after the grill):
+1. README rewrite: one-paragraph summary; a picture; the pipeline diagram; "What is checked" (convergence gate,
+   wall gates, Cp reference, continuity, the NASA TMR table) with each number's source file in `validation/`;
+   "Known limits" (steady RANS, wall functions, coarse default mesh, sphere, IDW sampling); "Next steps" (FIX_PLAN
+   4 to 7 in one line each, plus the URANS fallback and the 2D y+ bug); Install; Development; a short "How it was
+   built" paragraph if Q3 keeps the workflow record. Fix the two stale items (v0.4.0 banner, "steps 3 and 4").
+2. `docs/FIX_PLAN.md`: a status block at the top (steps 0 to 3 closed with dates, versions and review files;
+   step 3 without review; 4 to 7 documented next steps). `docs/ACCURACY_AUDIT.md`: a status line per "What fails"
+   finding (closed by step N, or open, pointing at the FIX_PLAN step); do not change the audit's original text.
+3. Repository hygiene per Q2 to Q4: LICENSE, `docs/media/` and a `.gitignore` exception, the path wording, the
+   manifest tagline (and `website` once the repo URL is known). A manifest change is an add-on change: bump to
+   0.7.1 in both places.
+4. Optional CI per Q6.
+5. HIL visual QA: Bilal reads the README rendered locally (VS Code preview or the GitHub preview after his push)
+   and judges; small rounds.
+6. Close: tests green; if the add-on changed, `py tools/deploy.py` and the headless smoke check; commit in small
+   steps ("no physical quantity changed"); give Bilal the exact `gh repo create` / `git remote add` / `git push`
+   commands and wait for his go. Claude does not push.
+7. Handoff: final SESSION_LOG entry (archive this one verbatim first) stating the end state of the project and
+   where each next step is documented; no NEXT PROMPT needed beyond "project closed, next steps in FIX_PLAN".
 
-RULES: no sudo, no em dashes, asterisk terms plus glossary, never "validated" without a cited reference;
-stop at stage boundaries; no new heavy stage after about 150k tokens; hand off at about 200k; never compact.
+RULES: no sudo, no em dashes, asterisk terms plus glossary in chat replies, never "validated" without a cited
+reference and say when a value is from memory; no solver-side changes; nothing pushed or published without
+Bilal's explicit go; stop at stage boundaries; no new heavy stage after about 150k tokens; hand off at about
+200k; never compact.
