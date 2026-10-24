@@ -105,3 +105,8 @@ icosphere 100 % at n 8 and n 5. Faceting, not stack depth alone, breaks deep sta
   9.9 mm vs 1.94 mm, y+ up to about 5x target); caught by the y+ gate, not by face coverage.
 - Suzanne: layers collapse at any depth (30 to 35 % faces extruded, tet quality failures at iteration 1);
   curvatureLevel (48 0 4 -1) raised no face to level 4; checkMesh fails by 2 pre-existing skew faces (4.70).
+
+A2 (Q2 coverage definition, locked): layer coverage = faces extruded / body faces from snappy's final
+"Extruding X out of Y faces" line in log.snappyHexMesh, gated at 90 %. Reported with it in forces.json and the
+panel: mean layers / target and overall thickness % of target (snappy's layer table). Faces with fewer layers
+and a thicker first cell are caught by the area-weighted y+ <= 300 gate after the solve.
