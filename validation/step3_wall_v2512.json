@@ -2447,5 +2447,523 @@
    "p_initial_at_3000": 0.00803,
    "note": "steady simpleFoam oscillates (about 21 mean crossings per 1000 iterations, Cd 0.20 to 0.26); the step 2 gate does not pass; Cd not reported"
   }
+ },
+ "stageA_diagnostic_2026_10_24": {
+  "what": "FIX_PLAN step 3 Stage A diagnostic bundle, copies only in ~/wind_tunnel/_step3/diag (tools/audit/step3_diag.py; bundle.json there has every field). Mesh-only cone variants from 3d_Cone body.stl written by case3d.write_case at the locked COARSE settings (levels (2 3), wake 2, L/6, 24 ranks) with one change each; one cone solve through the real Allrun to the step 2 gate (no re-mesh); sphere attribution.",
+  "definitions": {
+   "d": "normal distance from the owner cell centre (mean of its face centres) to the body face plane, as tools/audit/step3_yplus.py",
+   "d_gt_2yc_area": "area fraction with d > 2 y_c = 3.886 mm (locked y_c 1.943 mm), the same absolute threshold for every variant",
+   "pred_yplus_le_300": "run_Cone per-face u_tau (yPlus nu / d at 781) mapped onto the variant's body faces by nearest face centre, y+ = d u_tau / nu; cube variant uses run_Cube at 801",
+   "criterion": "best variant (pre-registered before the solve): the highest predicted y+ <= 300 fraction among V1 to V4 with coverage >= 90 %, checkMesh failed checks <= V0, max skewness <= 1.05 x V0 and max non-orthogonality <= V0 + 1 deg; tie-break the lower d > 2 y_c fraction. Solved only if its predicted fraction is above V0's."
+  },
+  "calibration": {
+   "run_Cone_781_recomputed": {
+    "cells": 363277,
+    "d_gt_2yc_area": 0.35725400078296793,
+    "meas_yplus_le_300": 0.8197012624845519,
+    "meas_band_30_300": 0.7943571989934467,
+    "d_mm_p10_p50_p90": [
+     1.94,
+     3.253,
+     7.649
+    ]
+   },
+   "predictor_on_run_Cone_remesh_716": {
+    "pred_yplus_le_300": 0.747896445729038,
+    "meas_yplus_le_300": 0.7547434724306252,
+    "pred_yplus_p50_p90": [
+     165.6,
+     460.5
+    ],
+    "meas_yplus_p50_p90": [
+     166.5,
+     458.7
+    ]
+   },
+   "note": "predictor error on an independent re-mesh: 74.8 % predicted vs 75.5 % measured (-0.7 points)"
+  },
+  "variants": {
+   "V0_locked": {
+    "setting": "locked",
+    "cells": 363291,
+    "body_faces": 3612,
+    "d_gt_2yc_area": 0.35726984306552545,
+    "d_mm_p10_p50_p90": [
+     1.94,
+     3.253,
+     7.649
+    ],
+    "d_mm_area_mean": 4.094,
+    "pred_yplus_le_300": 0.8196807480493254,
+    "pred_band_30_300": 0.7943370346284366,
+    "pred_yplus_p50_p90": [
+     149.6,
+     419.7
+    ],
+    "layers": {
+     "faces": 3612,
+     "target": 5,
+     "mesh_mean": 3.07,
+     "overall_thickness_m": 0.028,
+     "thickness_pct_of_target": 80.8,
+     "faces_extruded_final": 3504,
+     "coverage_faces_extruded": 0.9700996677740864,
+     "layers_on_extruded_faces": 3.164623287671233
+    },
+    "checkMesh": {
+     "cells": 363291,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 56.76513,
+     "max_skewness": 1.076295,
+     "max_aspect": 21.446
+    }
+   },
+   "V1_nSmooth2": {
+    "setting": {
+     "nSmoothThickness": 2
+    },
+    "cells": 362659,
+    "body_faces": 3602,
+    "d_gt_2yc_area": 0.4370308136264721,
+    "d_mm_p10_p50_p90": [
+     1.943,
+     3.617,
+     11.253
+    ],
+    "d_mm_area_mean": 4.946,
+    "pred_yplus_le_300": 0.6814376422542139,
+    "pred_band_30_300": 0.6560940230389607,
+    "pred_yplus_p50_p90": [
+     166.2,
+     606.4
+    ],
+    "layers": {
+     "faces": 3602,
+     "target": 5,
+     "mesh_mean": 2.93,
+     "overall_thickness_m": 0.0294,
+     "thickness_pct_of_target": 86.2,
+     "faces_extruded_final": 3424,
+     "coverage_faces_extruded": 0.9505830094392005,
+     "layers_on_extruded_faces": 3.0823189252336447
+    },
+    "checkMesh": {
+     "cells": 362659,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 59.1807,
+     "max_skewness": 1.083043,
+     "max_aspect": 21.446
+    }
+   },
+   "V2_buffer_m1": {
+    "setting": {
+     "nBufferCellsNoExtrude": -1
+    },
+    "cells": null,
+    "body_faces": null,
+    "d_gt_2yc_area": null,
+    "d_mm_p10_p50_p90": null,
+    "d_mm_area_mean": null,
+    "pred_yplus_le_300": null,
+    "pred_band_30_300": null,
+    "pred_yplus_p50_p90": null,
+    "layers": null,
+    "checkMesh": null
+   },
+   "V3_h1x064_n5": {
+    "setting": {
+     "h1_scale": 0.64,
+     "layers": 5
+    },
+    "cells": 360899,
+    "body_faces": 3612,
+    "d_gt_2yc_area": 0.2984903079965527,
+    "d_mm_p10_p50_p90": [
+     1.243,
+     2.448,
+     21.034
+    ],
+    "d_mm_area_mean": 6.233,
+    "pred_yplus_le_300": 0.771014484942677,
+    "pred_band_30_300": 0.6568425792544897,
+    "pred_yplus_p50_p90": [
+     136.8,
+     1158.2
+    ],
+    "layers": {
+     "faces": 3612,
+     "target": 5,
+     "mesh_mean": 2.4,
+     "overall_thickness_m": 0.0147,
+     "thickness_pct_of_target": 66.6,
+     "faces_extruded_final": 3187,
+     "coverage_faces_extruded": 0.8823366555924695,
+     "layers_on_extruded_faces": 2.7200502039535612
+    },
+    "checkMesh": {
+     "cells": 360899,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 59.15753,
+     "max_skewness": 1.064851,
+     "max_aspect": 33.50991
+    }
+   },
+   "V4_fa120": {
+    "setting": {
+     "featureAngle": 120
+    },
+    "cells": 362625,
+    "body_faces": 3605,
+    "d_gt_2yc_area": 0.3829870741531933,
+    "d_mm_p10_p50_p90": [
+     1.941,
+     3.337,
+     8.865
+    ],
+    "d_mm_area_mean": 4.371,
+    "pred_yplus_le_300": 0.7938933856181227,
+    "pred_band_30_300": 0.7685497547599471,
+    "pred_yplus_p50_p90": [
+     162.3,
+     472.4
+    ],
+    "layers": {
+     "faces": 3605,
+     "target": 5,
+     "mesh_mean": 2.89,
+     "overall_thickness_m": 0.0267,
+     "thickness_pct_of_target": 76.1,
+     "faces_extruded_final": 3377,
+     "coverage_faces_extruded": 0.936754507628294,
+     "layers_on_extruded_faces": 3.085119928931004
+    },
+    "checkMesh": {
+     "cells": 362625,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 55.85929,
+     "max_skewness": 1.076295,
+     "max_aspect": 21.446
+    }
+   },
+   "V5_level33": {
+    "setting": {
+     "surface_levels": [
+      3,
+      3
+     ]
+    },
+    "cells": 383254,
+    "body_faces": 5148,
+    "d_gt_2yc_area": 0.09887447526385394,
+    "d_mm_p10_p50_p90": [
+     1.94,
+     1.942,
+     3.79
+    ],
+    "d_mm_area_mean": 2.551,
+    "pred_yplus_le_300": 0.9660222759902407,
+    "pred_band_30_300": 0.9406812499911101,
+    "pred_yplus_p50_p90": [
+     104.6,
+     194.5
+    ],
+    "layers": {
+     "faces": 5148,
+     "target": 5,
+     "mesh_mean": 4.26,
+     "overall_thickness_m": 0.0317,
+     "thickness_pct_of_target": 91.2,
+     "faces_extruded_final": 5064,
+     "coverage_faces_extruded": 0.9836829836829837,
+     "layers_on_extruded_faces": 4.330663507109005
+    },
+    "checkMesh": {
+     "cells": 383254,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 56.76659,
+     "max_skewness": 0.8196591,
+     "max_aspect": 10.81571
+    }
+   },
+   "V6_level33_fa120": {
+    "setting": {
+     "surface_levels": [
+      3,
+      3
+     ],
+     "featureAngle": 120
+    },
+    "cells": 382625,
+    "body_faces": 5148,
+    "d_gt_2yc_area": 0.12284075122541757,
+    "d_mm_p10_p50_p90": [
+     1.94,
+     1.942,
+     4.101
+    ],
+    "d_mm_area_mean": 2.825,
+    "pred_yplus_le_300": 0.9406692986783476,
+    "pred_band_30_300": 0.9153282212668592,
+    "pred_yplus_p50_p90": [
+     108.6,
+     216.4
+    ],
+    "layers": {
+     "faces": 5148,
+     "target": 5,
+     "mesh_mean": 4.14,
+     "overall_thickness_m": 0.0309,
+     "thickness_pct_of_target": 87.8,
+     "faces_extruded_final": 4942,
+     "coverage_faces_extruded": 0.95998445998446,
+     "layers_on_extruded_faces": 4.312569809793605
+    },
+    "checkMesh": {
+     "cells": 382625,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 55.13208,
+     "max_skewness": 0.8195737,
+     "max_aspect": 10.83134
+    }
+   },
+   "V7_curv48": {
+    "setting": {
+     "curvature_nc": 48
+    },
+    "cells": 363176,
+    "body_faces": 3604,
+    "d_gt_2yc_area": 0.35511812870536164,
+    "d_mm_p10_p50_p90": [
+     1.94,
+     3.252,
+     7.649
+    ],
+    "d_mm_area_mean": 4.12,
+    "pred_yplus_le_300": 0.8236506571301849,
+    "pred_band_30_300": 0.7983067300011404,
+    "pred_yplus_p50_p90": [
+     149.6,
+     441.8
+    ],
+    "layers": {
+     "faces": 3604,
+     "target": 5,
+     "mesh_mean": 3.07,
+     "overall_thickness_m": 0.028,
+     "thickness_pct_of_target": 80.9,
+     "faces_extruded_final": 3494,
+     "coverage_faces_extruded": 0.9694783573806881,
+     "layers_on_extruded_faces": 3.1666514024041215
+    },
+    "checkMesh": {
+     "cells": 363176,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 56.75013,
+     "max_skewness": 1.078883,
+     "max_aspect": 21.446
+    }
+   },
+   "Cube_level33": {
+    "setting": {
+     "body": "Cube",
+     "surface_levels": [
+      3,
+      3
+     ]
+    },
+    "cells": 436030,
+    "body_faces": 13824,
+    "d_gt_2yc_area": 0.0745410459758202,
+    "d_mm_p10_p50_p90": [
+     1.94,
+     1.943,
+     3.457
+    ],
+    "d_mm_area_mean": 2.446,
+    "pred_yplus_le_300": 0.99774109495597,
+    "pred_band_30_300": 0.9015143774519601,
+    "pred_yplus_p50_p90": [
+     44.6,
+     84.9
+    ],
+    "layers": {
+     "faces": 13824,
+     "target": 5,
+     "mesh_mean": 4.22,
+     "overall_thickness_m": 0.0313,
+     "thickness_pct_of_target": 90.9,
+     "faces_extruded_final": 13824,
+     "coverage_faces_extruded": 1.0,
+     "layers_on_extruded_faces": 4.22
+    },
+    "checkMesh": {
+     "cells": 436030,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 41.53637,
+     "max_skewness": 0.4735598,
+     "max_aspect": 11.17296
+    }
+   }
+  },
+  "variant_notes": {
+   "V2_buffer_m1": "nBufferCellsNoExtrude -1 (snappyLayerDriver.C:2545-2582: no truncation buffer, a face takes the minimum layer count of its extruded points): every layer iteration removed more extrusion, final 0 of 3612 faces; no layer table",
+   "V5_V6_V7_Cube": "added after the pre-registered set (V1 to V4, none beat V0): the V0_layerfields map located the cut layers",
+   "V7_curv48": "curvatureLevel (48 0 3 -1): no change (363,176 cells, same level mix), so the level-2 faces on the cone side are not set by the curvature rule"
+  },
+  "V0_layerfields_map": {
+   "how": "V0 re-meshed with writeFlags (layerFields), per-face nSurfaceLayers and thickness (processor*/0, reconstructPar -withZero -time 0)",
+   "by_layer_count": {
+    "0": {
+     "area": 0.032,
+     "d_mm_p50": 14.72,
+     "gt300_area": 0.032
+    },
+    "1": {
+     "area": 0.139,
+     "d_mm_p50": 6.18,
+     "thickness_mm_p50": 8.5,
+     "gt300_area": 0.097
+    },
+    "2": {
+     "area": 0.211,
+     "d_mm_p50": 4.47,
+     "thickness_mm_p50": 26.8,
+     "first_layer_mm_from_thickness": 11.65,
+     "gt300_area": 0.052
+    },
+    "3": {
+     "area": 0.167,
+     "d_mm_p50": 3.44,
+     "thickness_mm_p50": 33.4,
+     "gt300_area": 0.0
+    },
+    "4": {
+     "area": 0.136,
+     "d_mm_p50": 2.38,
+     "thickness_mm_p50": 34.9,
+     "gt300_area": 0.0
+    },
+    "5": {
+     "area": 0.315,
+     "d_mm_p50": 1.94,
+     "thickness_mm_p50": 35.1,
+     "gt300_area": 0.0
+    }
+   },
+   "where": "pure level-3 side x -0.8 to -0.2: 4.45 to 5.0 layers; mixed level 2 and 3 faces x -0.2 to 0.6: 1.8 to 2.2 layers; next to the base rim x 0.8 to 1.0: 2.5 layers (rim normals turn about 117 deg > featureAngle 60, 203 feature edges at zero displacement)",
+   "mechanism_source": "snappyLayerDriver.C:4171-4181: finalDisp = finalLayerThicknessRatio(nPatchPointLayers, r) x patchDisp; the smoothed total thickness is spread over the layers a point keeps after truncation, so a cut point gets a first layer several times h1"
+  },
+  "solve_V5_level33": {
+   "root": "/home/bilal/wind_tunnel/_step3/diag/solve_V5_level33",
+   "status": "done",
+   "wall_seconds": 275,
+   "cells": 383044,
+   "converged": true,
+   "iterations": 721,
+   "Cd_mean": 0.5848557776227411,
+   "Cd_band": 0.00201333359595044,
+   "wall": {
+    "yplus": {
+     "min": 6.778922,
+     "mean": 112.63911553683963,
+     "max": 1489.822,
+     "le_300": 0.9694971488994741,
+     "band_30_300": 0.9427864090668323,
+     "lt_5": 0.0,
+     "gate": true,
+     "required": 0.9,
+     "u_tau_mean": 0.6560863023919854
+    },
+    "layers": {
+     "coverage": 0.9836829836829837,
+     "faces_extruded": 5064,
+     "body_faces": 5148,
+     "layers_target": 5,
+     "layers_mean": 4.26,
+     "thickness_m": 0.0317,
+     "thickness_pct": 91.2,
+     "gate": true,
+     "required": 0.9
+    },
+    "u_tau_ref": 0.772
+   },
+   "Cd_change_vs_step2_0p5833_pct": 0.267,
+   "predicted_vs_measured_le_300": [
+    0.966013169297959,
+    0.9694971488994741
+   ],
+   "yplus_area_p50_p90": [
+    98.4,
+    192.5
+   ]
+  },
+  "sphere_attribution": {
+   "case": "/home/bilal/wind_tunnel/_step3/diag/sphere_attrib",
+   "mesh": "3d_Sphere (v1912-era snappy, 2 relative layers), 339,042 cells",
+   "start": "3d_Sphere v1912 fields at 400",
+   "settings": "run_Sphere system/controlDict and fvSolution (4 gate FOs, endTime 3000; fvSolution differs from 3d_Sphere only by the removed residualControl); fvSchemes and 0.orig boundary conditions identical",
+   "wall_seconds": 256,
+   "old_mesh_continued": {
+    "gate": "converged at 1306 (stop at the gate, iterations 401 to 1306)",
+    "Cd_window_1107_1306": [
+     0.1622,
+     0.162,
+     0.1624
+    ],
+    "Cd_band_pct": 0.25,
+    "p_initial": 0.000983,
+    "Cd_801_1000_mean_min_max": [
+     0.1635,
+     0.1614,
+     0.1653
+    ]
+   },
+   "run_Sphere_step3_mesh": {
+    "iterations": [
+     1,
+     3000
+    ],
+    "p_initial_last": 0.008033739,
+    "windows": {
+     "1001-2000": {
+      "Cd_mean": 0.253,
+      "Cd_min": 0.2091,
+      "Cd_max": 0.3113,
+      "mean_crossings_per_1000": 6.0
+     },
+     "2001-3000": {
+      "Cd_mean": 0.2292,
+      "Cd_min": 0.205,
+      "Cd_max": 0.2636,
+      "mean_crossings_per_1000": 21.0
+     },
+     "2801-3000": {
+      "Cd_mean": 0.241,
+      "Cd_min": 0.2126,
+      "Cd_max": 0.2636,
+      "mean_crossings_per_1000": 15.0
+     }
+    },
+    "gate": {
+     "converged": false,
+     "iteration": 3000,
+     "reasons": [
+      "stopped at the cap of 3000 iterations",
+      "Cd band 21.17 % >= 0.5 % over iterations 2801 to 3000",
+      "p residual 8.0e-03 >= 0.001 (trend -0.14 orders per 100 iterations)"
+     ]
+    }
+   },
+   "crossings_note": "mean crossings = sign changes of Cd minus the window mean; reproduces the recorded 21 for run_Sphere 2001-3000. Recorded Cd mean 0.2277 there vs 0.2292 here (0.7 %), same force history, area 3.1215 m2",
+   "conclusion": "the old mesh converges under the same v2512 solver, schemes and gate; the oscillation comes from the step 3 mesh, not from steady RANS on this body at Re 2.67e6. Which step 3 change (curvatureLevel 75 -> 151 cells around, or 5 absolute layers vs 2 relative) is not yet separated"
+  }
  }
 }

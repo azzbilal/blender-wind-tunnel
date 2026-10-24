@@ -28,10 +28,14 @@ results = importlib.import_module("wind_tunnel.results")
 W = Path.home() / "wind_tunnel"
 
 
-def run(body, root, u_tau=None):
+def run(body, root, u_tau=None, layers=None, patch=None, levels=(2, 3)):
+    """patch: optional callable(root) applied after write_case and before Allrun (step3_diag.py variants)."""
     tris = case3d.read_stl(W / f"3d_{body}" / "constant/triSurface/body.stl")
-    s = case3d.Setup3D(surface_levels=(2, 3), wake_level=2, cells_per_L=6, iterations=3000, procs=24, u_tau=u_tau)
+    s = case3d.Setup3D(surface_levels=levels, wake_level=2, cells_per_L=6, iterations=3000, procs=24, u_tau=u_tau,
+                       layers=layers)
     script, t = case3d.write_case(root, tris, s, exporter=REPO / "wind_tunnel/export_field.py")
+    if patch:
+        patch(root)
     t0 = time.time()
     subprocess.run(["bash", str(script)], check=False)
     wall_s = time.time() - t0
