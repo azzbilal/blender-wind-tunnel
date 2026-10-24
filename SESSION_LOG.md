@@ -44,7 +44,8 @@ version 1.0.0, cone secondary source). No solver-side change, no new run.
 ### Open issues
 - HIL visual QA (Stage 5) of the rendered README: round 1 applied (30-second summary, Details moved to
   `docs/DETAILS.md`, OpenFOAM trade mark notice, Achenbach 1972 citation, repo renamed `blender-wind-tunnel`,
-  method sentence); further rounds pending on Bilal. The Mermaid block is not render-tested locally.
+  method sentence); round 2 applied (intro cut to one sentence, Achenbach wording kept, "What I learned"
+  approved as is by Bilal, draft banner removed). README QA closed. The Mermaid block is not render-tested locally.
 - Push: Bilal's step (commands in the chat reply of this session). The CI badge and the manifest `website` assume
   the GitHub account `azzbilal`; change both if the repo lives elsewhere.
 - The archived 0.7.0 entry (verbatim, `docs/archive/session_log_2026-10.md`) quotes the old user paths and the

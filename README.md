@@ -156,9 +156,6 @@ run are described in [`docs/DETAILS.md`](docs/DETAILS.md).
 
 ## What I learned about OpenFOAM
 
-> **Draft for Bilal to edit.** Written from the project records (audit, specs, reviews); rewrite in your own
-> words and cut what you would not say in an interview.
-
 - **Check that the build's own cross-checks run before trusting any post-processing.** Ubuntu's packaged
   OpenFOAM v1912 crashed in every function object (`forces`, `yPlus`, `solverInfo`), so for the first
   version nothing could be compared with OpenFOAM's own numbers. Moving to the openfoam.com v2512 build
