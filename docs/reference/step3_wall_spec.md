@@ -31,8 +31,10 @@ Gates (reported in forces.json and the panel; the panel warns on either):
   log.snappyHexMesh, at least 90 %.
 Information only: y+ min/mean/max, area fraction 30 < y+ < 300, area fraction y+ < 5, mean layers / target
 and overall thickness % of target (snappy's layer table: patch, faces, target, mesh, thickness m, %).
-If a converged run fails the y+ gate: re-derive u_tau from that run (area-weighted mean of
-y+ nu / nearWallDist), re-mesh and re-solve once, then report.
+No automatic re-mesh (amendment D2; the Q1 area-mean u_tau re-mesh is removed). When the y+ gate fails,
+forces.json and the panel report the cause: the area fraction with y+ > 300 on faces whose first cell-centre
+distance d > 2 y_c (cut layers) and on faces with d <= 2 y_c (u_tau above the sizing anchor); forces.json
+carries y_c (y+ target x nu / u_tau_ref).
 
 ## Q1. Target y+ and first-layer height
 
@@ -114,6 +116,20 @@ y+ nu / nearWallDist), re-mesh and re-solve once, then report.
   mesh only: 388,914 cells (388,963), 100 % of the area at level 3 before and after: unchanged.
 - Not measured yet: the cube's Cd at +18 % cells (re-solved in Stage B), the MEDIUM cost; 9.9 % of the cone area
   still has d > 2 y_c in the rim band (inside the gate).
+
+## Amendment D2 (Bilal, 2026-10-24)
+
+- Locked: no automatic re-mesh. `results.remesh_u_tau`, the `__init__` re-mesh step and
+  `forces.json["wall"]["yplus"]["u_tau_mean"]` go. forces.json wall.yplus gains `y_c` (m, from the y+ target and
+  `--u-tau-ref`), `gt300_thick_first_cell` (area fraction with y+ > 300 and d > 2 y_c) and `gt300_design_first_cell`
+  (y+ > 300 and d <= 2 y_c); the panel's FAIL row names the larger cause.
+- Why: the only re-mesh that ran (cone, area-mean u_tau 0.698 < anchor 0.772, h1 3.89 -> 4.30 mm) lowered
+  y+ <= 300 from 82.0 to 75.5 %. On all five measured runs (run_Cone, run_Cone_remesh, the D1 cone, run_Cube,
+  run_Sphere) 0 % of the y+ > 300 area has d <= 1.5 y_c; on faces with d <= 1.5 y_c the area-weighted y+ p90 is
+  54 to 163, so no u_tau-driven failure has occurred. A cut-layer failure is not fixed by a new h1 (Stage A V3:
+  h1 x 0.64 lowered the prediction to 77.1 % and coverage to 88.2 %).
+- Logged, not built: a guarded re-mesh (only when most of the failing area has d <= 2 y_c, sized with the
+  area-weighted p90 u_tau of those faces at y+ 100), if a body ever shows a u_tau-driven failure.
 
 ## Notes
 

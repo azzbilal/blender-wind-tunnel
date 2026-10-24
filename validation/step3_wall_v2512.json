@@ -3010,6 +3010,57 @@
    "crossings_note": "mean crossings = sign changes of Cd minus the window mean; reproduces the recorded 21 for run_Sphere 2001-3000. Recorded Cd mean 0.2277 there vs 0.2292 here (0.7 %), same force history, area 3.1215 m2",
    "conclusion": "the old mesh, continued from its v1912 field at 400 (Cd 0.167 at 400), converges under the identical v2512 solver, schemes and gate; the step 3 mesh from a cold start does not. The mesh is the leading cause; the start field is not separated (D3), and which step 3 change matters (151 vs 75 cells around, 5 absolute vs 2 relative layers) is not separated either"
   },
-  "D1_locked": "body level (lo2 lo2) in every preset, curvatureLevel removed (docs/reference/step3_wall_spec.md amendment D1)"
+  "D1_locked": "body level (lo2 lo2) in every preset, curvatureLevel removed (docs/reference/step3_wall_spec.md amendment D1)",
+  "D2_failure_split": {
+   "definition": "area fractions of the body; full stack = d <= 1.5 y_c (y_c 1.943 mm); u_tau = yPlus nu / d",
+   "runs": {
+    "run_Cone_781": {
+     "gt300": 0.18,
+     "gt300_full_stack": 0.0,
+     "yplus_p90_full_stack": 150,
+     "u_tau_mean_p90": [
+      0.698,
+      0.972
+     ]
+    },
+    "run_Cone_remesh_716": {
+     "gt300": 0.245,
+     "gt300_full_stack": 0.0,
+     "yplus_p90_full_stack": 163,
+     "u_tau_mean_p90": [
+      0.696,
+      0.971
+     ]
+    },
+    "solve_V5_level33_721": {
+     "gt300": 0.031,
+     "gt300_full_stack": 0.0,
+     "yplus_p90_full_stack": 109,
+     "u_tau_mean_p90": [
+      0.656,
+      0.894
+     ]
+    },
+    "run_Cube_801": {
+     "gt300": 0.002,
+     "gt300_full_stack": 0.0,
+     "yplus_p90_full_stack": 54,
+     "u_tau_mean_p90": [
+      0.333,
+      0.434
+     ]
+    },
+    "run_Sphere_3000_unconverged": {
+     "gt300": 0.04,
+     "gt300_full_stack": 0.0,
+     "yplus_p90_full_stack": 159,
+     "u_tau_mean_p90": [
+      0.754,
+      1.215
+     ]
+    }
+   },
+   "D2_locked": "no automatic re-mesh; forces.json reports y_c and the y+ > 300 split at d = 2 y_c (spec amendment D2)"
+  }
  }
 }
