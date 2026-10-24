@@ -6,10 +6,10 @@ Sidebar (N) > Wind Tunnel. The case files, the mesh and the force integration ar
 bl_info = {
     "name": "Wind Tunnel (OpenFOAM)",
     "author": "Bilal Azzouzi",
-    "version": (0, 7, 0),
+    "version": (1, 0, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Wind Tunnel",
-    "description": "Airfoil polars with OpenFOAM (simpleFoam, k-omega SST) running in WSL",
+    "description": "Wind tunnel for any closed mesh and 2D airfoils: OpenFOAM (k-omega SST) in WSL, flow field back in Blender",
     "category": "Physics",
 }
 

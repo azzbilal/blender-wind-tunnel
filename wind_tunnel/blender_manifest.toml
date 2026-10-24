@@ -1,12 +1,12 @@
 schema_version = "1.0.0"
 
 id = "wind_tunnel"
-version = "0.7.0"
+version = "1.0.0"
 name = "Wind Tunnel (OpenFOAM)"
-tagline = "Airfoil polars from OpenFOAM running in WSL"
+tagline = "Wind tunnel: OpenFOAM in WSL, flow field back in Blender"
 maintainer = "Bilal Azzouzi"
 type = "add-on"
-website = "https://github.com/azzbilal"
+website = "https://github.com/azzbilal/blender-openfoam-wind-tunnel"
 tags = ["Physics"]
 blender_version_min = "4.2.0"
 license = ["SPDX:GPL-3.0-or-later"]
