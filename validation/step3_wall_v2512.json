@@ -810,5 +810,330 @@
    "thickness_m": 0.0382,
    "pct": 77.9
   }
+ },
+ "probe_2026_10_24": {
+  "what": "snappy only (Allrun chain: blockMesh, decomposePar, snappyHexMesh -parallel 24, checkMesh -parallel), locked Q1 to Q4 settings, COARSE; tools/audit/step3_probe.sh, step3_probe.py; copies in ~/wind_tunnel/_step3/probe",
+  "v2512_layer_table": "columns: patch, faces, layers target, layers mesh (mean), overall thickness m, % = achieved thickness / target thickness (not a face coverage)",
+  "level_note": "cellLevel not reconstructed by reconstructParMesh; level per face = round(log2(level0 / sqrt(face area)))",
+  "runs": {
+   "Cube_fa120": {
+    "settings": {
+     "L": 2.0,
+     "Re": 2666666.6666666665,
+     "u_tau_ref": 0.7720688886003558,
+     "y_c": 0.0019428318148128896,
+     "h1": 0.003885663629625779,
+     "minThickness": 0.0019428318148128896,
+     "level0": 0.3333333333333333,
+     "delta": 0.041666666666666664,
+     "n": 8,
+     "featureAngle": 120.0
+    },
+    "stl": {
+     "triangles": 12,
+     "vertices": 8
+    },
+    "checkMesh": {
+     "cells": 398796,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 48.66138,
+     "max_skewness": 2.453128,
+     "max_aspect": 21.44987,
+     "warnings": []
+    },
+    "body_faces": 6624,
+    "level_source": "round(log2(level0 / sqrt(face area)))",
+    "level_area_fraction": {
+     "2": 0.6826318179054449,
+     "3": 0.3173681820945551
+    },
+    "level_from_face_area_fraction": {
+     "2": 0.6826318179054449,
+     "3": 0.3173681820945551
+    },
+    "layers": {
+     "faces": 6624,
+     "target": 8,
+     "mesh_mean": 8.0,
+     "overall_thickness_m": 8.0,
+     "thickness_pct_of_target": 0.0927,
+     "faces_extruded_final": "6624 / 6624 (100 %)"
+    }
+   },
+   "Cube_fa60": {
+    "settings": {
+     "L": 2.0,
+     "Re": 2666666.6666666665,
+     "u_tau_ref": 0.7720688886003558,
+     "y_c": 0.0019428318148128896,
+     "h1": 0.003885663629625779,
+     "minThickness": 0.0019428318148128896,
+     "level0": 0.3333333333333333,
+     "delta": 0.041666666666666664,
+     "n": 8,
+     "featureAngle": 60.0
+    },
+    "stl": {
+     "triangles": 12,
+     "vertices": 8
+    },
+    "checkMesh": {
+     "cells": 372780,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 60.10672,
+     "max_skewness": 0.8416574,
+     "max_aspect": 21.44987,
+     "warnings": []
+    },
+    "body_faces": 6624,
+    "level_source": "round(log2(level0 / sqrt(face area)))",
+    "level_area_fraction": {
+     "2": 0.6826318179054449,
+     "3": 0.3173681820945551
+    },
+    "level_from_face_area_fraction": {
+     "2": 0.6826318179054449,
+     "3": 0.3173681820945551
+    },
+    "layers": {
+     "faces": 6624,
+     "target": 8,
+     "mesh_mean": 8.0,
+     "overall_thickness_m": 4.07,
+     "thickness_pct_of_target": 0.0714
+    }
+   },
+   "Sphere_fa120": {
+    "settings": {
+     "L": 2.0,
+     "Re": 2666666.6666666665,
+     "u_tau_ref": 0.7720688886003558,
+     "y_c": 0.0019428318148128896,
+     "h1": 0.003885663629625779,
+     "minThickness": 0.0019428318148128896,
+     "level0": 0.3333333333333333,
+     "delta": 0.041666666666666664,
+     "n": 8,
+     "featureAngle": 120.0
+    },
+    "stl": {
+     "triangles": 960,
+     "vertices": 482,
+     "radius_m": 0.9999998418872558,
+     "rings": 16,
+     "segments": 32,
+     "segment_angle_deg": 11.25,
+     "triangle_edge_m_median": 0.19603440536558409
+    },
+    "checkMesh": {
+     "cells": 373632,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 64.28989,
+     "max_skewness": 1.472622,
+     "max_aspect": 8.605161,
+     "warnings": []
+    },
+    "body_faces": 6112,
+    "level_source": "round(log2(level0 / sqrt(face area)))",
+    "level_area_fraction": {
+     "3": 1.0
+    },
+    "level_from_face_area_fraction": {
+     "3": 1.0
+    },
+    "level_by_region": {
+     "front ux>0.5": {
+      "3": 1.0
+     },
+     "side |ux|<=0.5": {
+      "3": 1.0
+     },
+     "rear ux<-0.5": {
+      "3": 1.0
+     }
+    },
+    "cells_around_equator": 136,
+    "cells_around_from_level": {
+     "3": 150.79642352946996
+    },
+    "layers": {
+     "faces": 6112,
+     "target": 8,
+     "mesh_mean": 8.0,
+     "overall_thickness_m": 2.09,
+     "thickness_pct_of_target": 0.0402,
+     "faces_extruded_final": "3794 / 6112 (62.1 %)"
+    }
+   },
+   "Sphere_fa60": {
+    "settings": {
+     "L": 2.0,
+     "Re": 2666666.6666666665,
+     "u_tau_ref": 0.7720688886003558,
+     "y_c": 0.0019428318148128896,
+     "h1": 0.003885663629625779,
+     "minThickness": 0.0019428318148128896,
+     "level0": 0.3333333333333333,
+     "delta": 0.041666666666666664,
+     "n": 8,
+     "featureAngle": 60.0
+    },
+    "stl": {
+     "triangles": 960,
+     "vertices": 482,
+     "radius_m": 0.9999998418872558,
+     "rings": 16,
+     "segments": 32,
+     "segment_angle_deg": 11.25,
+     "triangle_edge_m_median": 0.19603440536558409
+    },
+    "checkMesh": {
+     "cells": 373632,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 64.28989,
+     "max_skewness": 1.472622,
+     "max_aspect": 8.605161,
+     "warnings": []
+    },
+    "body_faces": 6112,
+    "level_source": "round(log2(level0 / sqrt(face area)))",
+    "level_area_fraction": {
+     "3": 1.0
+    },
+    "level_from_face_area_fraction": {
+     "3": 1.0
+    },
+    "level_by_region": {
+     "front ux>0.5": {
+      "3": 1.0
+     },
+     "side |ux|<=0.5": {
+      "3": 1.0
+     },
+     "rear ux<-0.5": {
+      "3": 1.0
+     }
+    },
+    "cells_around_equator": 136,
+    "cells_around_from_level": {
+     "3": 150.79642352946996
+    },
+    "layers": {
+     "faces": 6112,
+     "target": 8,
+     "mesh_mean": 8.0,
+     "overall_thickness_m": 2.09,
+     "thickness_pct_of_target": 0.0402,
+     "faces_extruded_final": "identical to fa120"
+    }
+   },
+   "Suzanne_fa120": {
+    "settings": {
+     "L": 2.734375,
+     "Re": 3645833.333333333,
+     "u_tau_ref": 0.7550123346574762,
+     "y_c": 0.001986722509216356,
+     "h1": 0.003973445018432712,
+     "minThickness": 0.001986722509216356,
+     "level0": 0.4557291666666667,
+     "delta": 0.056966145833333336,
+     "n": 9,
+     "featureAngle": 120.0
+    },
+    "stl": {
+     "triangles": 968,
+     "vertices": 505
+    },
+    "checkMesh": {
+     "cells": 296151,
+     "failed_checks": 1,
+     "mesh_ok": false,
+     "max_non_ortho": 61.89352,
+     "max_skewness": 4.700515,
+     "max_aspect": 13.16335,
+     "warnings": [
+      "***Max skewness = 4.700515, 2 highly skew faces detected which may impair the quality of the results"
+     ]
+    },
+    "body_faces": 3135,
+    "level_source": "round(log2(level0 / sqrt(face area)))",
+    "level_area_fraction": {
+     "2": 0.05328158244104929,
+     "3": 0.9213793399654026,
+     "4": 0.02533907759354808
+    },
+    "level_from_face_area_fraction": {
+     "2": 0.05328158244104929,
+     "3": 0.9213793399654026,
+     "4": 0.02533907759354808
+    },
+    "layers": {
+     "faces": 3135,
+     "target": 9,
+     "mesh_mean": 9.0,
+     "overall_thickness_m": 0.406,
+     "thickness_pct_of_target": 0.011,
+     "faces_extruded_final": "732 / 3135 (23.3 %)"
+    }
+   },
+   "Suzanne_fa60": {
+    "settings": {
+     "L": 2.734375,
+     "Re": 3645833.333333333,
+     "u_tau_ref": 0.7550123346574762,
+     "y_c": 0.001986722509216356,
+     "h1": 0.003973445018432712,
+     "minThickness": 0.001986722509216356,
+     "level0": 0.4557291666666667,
+     "delta": 0.056966145833333336,
+     "n": 9,
+     "featureAngle": 60.0
+    },
+    "stl": {
+     "triangles": 968,
+     "vertices": 505
+    },
+    "checkMesh": {
+     "cells": 296295,
+     "failed_checks": 1,
+     "mesh_ok": false,
+     "max_non_ortho": 64.08022,
+     "max_skewness": 4.700515,
+     "max_aspect": 10.14868,
+     "warnings": [
+      "***Max skewness = 4.700515, 2 highly skew faces detected which may impair the quality of the results"
+     ]
+    },
+    "body_faces": 3171,
+    "level_source": "round(log2(level0 / sqrt(face area)))",
+    "level_area_fraction": {
+     "2": 0.05120594429807129,
+     "3": 0.9226928342778588,
+     "4": 0.026101221424069863
+    },
+    "level_from_face_area_fraction": {
+     "2": 0.05120594429807129,
+     "3": 0.9226928342778588,
+     "4": 0.026101221424069863
+    },
+    "layers": {
+     "faces": 3171,
+     "target": 9,
+     "mesh_mean": 9.0,
+     "overall_thickness_m": 0.447,
+     "thickness_pct_of_target": 0.0116
+    }
+   }
+  },
+  "findings": [
+   "Sphere: 2.09 of 8 layers, 43.4 % thickness, 62 % of faces extruded; identical at featureAngle 60 and 120. Iteration 1 found 2101 illegal faces, nearly all face-decomposition tet quality < 1e-15, with the full 93 mm stack (2.2 level-3 cells deep). STOP condition (sphere coverage < 90 %) met.",
+   "Sphere curvature refinement works: all body faces at level 3 (front, side, rear), 136 faces counted around the equator row, 151 expected from the level; STL UV sphere 32 segments x 16 rings (960 triangles, 11.25 deg per segment, median edge 0.196 m on r = 1 m).",
+   "Cube: featureAngle 120 gives 8/8 layers, 100 % (60: 4.07/8, 80.8 %); checkMesh OK at both; max non-orthogonality 48.7 (60: 60.1, better); max skewness 2.45 (60: 0.84, WORSE): fails the Q2 criterion 'no worse than at 60' on skewness.",
+   "Suzanne: checkMesh fails at 60 and 120 by the same 2 faces, skewness 4.700515; the current solved 3d_Suzanne mesh has the same failure (4.700331), so it predates the new settings (castellation and snap). Layers 0.41 to 0.45 of 9 (23 % of faces extruded; current mesh 0.82 of 2). STOP condition (Suzanne fails checkMesh at 120) met."
+  ]
  }
 }
