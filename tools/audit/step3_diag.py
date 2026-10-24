@@ -236,6 +236,7 @@ EXTRA2 = {
     "V7_curv48": {"curvature_nc": 48},
     "Cube_level33": {"body": "Cube", "surface_levels": (3, 3)},
 }
+EXTRA3 = {"Sphere_level33": {"body": "Sphere", "surface_levels": (3, 3)}}
 
 
 def extra(variants=EXTRA):
@@ -243,7 +244,8 @@ def extra(variants=EXTRA):
     predicted from run_Cube's u_tau at its gated time)."""
     L, sz = base_sizing()
     bundle = json.loads((D / "bundle.json").read_text())
-    refs = {"Cone": reference(), "Cube": reference(S3 / "run_Cube", ef.latest_time(S3 / "run_Cube"))}
+    refs = {"Cone": reference(), "Cube": reference(S3 / "run_Cube", ef.latest_time(S3 / "run_Cube")),
+            "Sphere": reference(S3 / "run_Sphere", ef.latest_time(S3 / "run_Sphere"))}
     for name, v in variants.items():
         ref = refs[v.get("body", "Cone")]
         root, vsz = mesh_variant(name, v)
@@ -327,4 +329,4 @@ def solve(name):
 
 if __name__ == "__main__":
     a = sys.argv[1:]
-    extra() if a == ["extra"] else extra(EXTRA2) if a == ["extra2"] else solve(a[1]) if a[:1] == ["solve"] else main()
+    extra() if a == ["extra"] else extra(EXTRA2) if a == ["extra2"] else extra(EXTRA3) if a == ["extra3"] else solve(a[1]) if a[:1] == ["solve"] else main()

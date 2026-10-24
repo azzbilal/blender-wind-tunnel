@@ -7,8 +7,9 @@ Grill answers and probe amendments (Bilal, 2026-10-24), locked before any code. 
 
 ## Rules the code implements (final)
 
-L = the body's largest dimension (`case3d.tunnel`), level0 = L / cells_per_L, (lo1, lo2) = body surface levels
-(COARSE (2 3), L/6; MEDIUM (3 4), L/8), Delta = level0 / 2^lo2, r = 1.3.
+L = the body's largest dimension (`case3d.tunnel`), level0 = L / cells_per_L, lo2 = body surface level
+(COARSE 3, L/6; MEDIUM 4, L/8; amendment D1: the body is refined to (lo2 lo2), uniform, was (2 3) and (3 4)),
+Delta = level0 / 2^lo2, r = 1.3.
 
 | Quantity | Rule | L 2 m, U 20 m/s, COARSE |
 |---|---|---|
@@ -22,7 +23,7 @@ L = the body's largest dimension (`case3d.tunnel`), level0 = L / cells_per_L, (l
 
 snappyHexMeshDict: `relativeSizes false; thicknessModel firstAndExpansion; firstLayerThickness h1;
 expansionRatio 1.3; minThickness 0.5 h1; nSurfaceLayers n; featureAngle 60; nGrow 0` (no
-finalLayerThickness); body in refinementSurfaces gets `curvatureLevel (24 0 lo2 -1)`.
+finalLayerThickness); body in refinementSurfaces gets `level (lo2 lo2)` and no `curvatureLevel` (amendment D1).
 
 Gates (reported in forces.json and the panel; the panel warns on either):
 - y+ <= 300 on at least 90 % of the body area (OpenFOAM `yPlus` FO, area-weighted).
@@ -71,7 +72,7 @@ y+ nu / nearWallDist), re-mesh and re-solve once, then report.
   cell centre about Delta/2 (y+ about 1000 at sphere u_tau); above it a squeezed stack keeps thinner layers.
   Judgement value, close to the old 0.1 relative on 20.8 mm cells.
 
-## Q4. Surface resolution
+## Q4. Surface resolution (superseded by amendment D1: uniform level (lo2 lo2), curvatureLevel removed)
 
 - curvatureLevel (24 0 lo2 -1): per triangle level = round(log2(nCurvCells level0 / r)) up to lo2
   (mesh/snappyHexMesh/refinementSurfaces/refinementSurfaces.C:1240-1250; level0 from
@@ -92,6 +93,27 @@ y+ nu / nearWallDist), re-mesh and re-solve once, then report.
   fractions, gate iteration, Cd window mean; Cd change against step 2 (cube 1.1498, cone 0.5833); the sphere's
   gated v2512 Cd becomes its baseline.
 - Panel warns on the two gates; FIX_PLAN step 3 acceptance text is updated to them at close.
+
+## Amendment D1 (Stage A diagnostic bundle, Bilal, 2026-10-24)
+
+- Locked: body surface level (lo2 lo2) in every preset, COARSE (3 3), MEDIUM (4 4) (`__init__.py` presets were
+  (2 3) and (3 4)); `curvatureLevel` removed from `snappy_dict` (under a uniform level it can raise or lower no
+  face). Layer settings unchanged (h1, n, minThickness, featureAngle 60, nSmoothThickness 10,
+  nBufferCellsNoExtrude 0).
+- Why: the cone's y+ failures sit on faces whose layer count was cut (0 to 2 of 5) while they keep most of the
+  smoothed stack thickness (2-layer faces: 26.8 mm, first layer 11.7 mm = 3 h1; v2512
+  snappyLayerDriver.C:4171-4181, finalDisp = finalLayerThicknessRatio(nPatchPointLayers, r) x patchDisp). The
+  cut layers sit where level 2 and level 3 faces mix on the side (x -0.2 to 0.6 m) and next to the base rim; pure
+  level 3 stretches keep 4.5 to 5 layers. curvatureLevel (48 0 3 -1) did not change the mix.
+- Evidence (`validation/step3_wall_v2512.json` stageA_diagnostic_2026_10_24, `tools/audit/step3_diag.py`): the four
+  layer candidates all lower the predicted y+ <= 300 fraction (82.0 % locked; nSmoothThickness 2: 68.1 %,
+  nBufferCellsNoExtrude -1: 1.0 % with 0 % coverage, h1 x 0.64 with n 5: 77.1 %, featureAngle 120: 79.4 %).
+  Level (3 3) on the cone, solved through the real Allrun: converged at 721, Cd 0.5849 (+0.27 % vs 0.5833),
+  y+ <= 300 on 96.9 % (predicted 96.6 %), band 94.3 %, coverage 98.4 %, checkMesh clean (max skewness 0.82 vs
+  1.08), 383,044 cells (+5.5 %). Cube mesh only: 436,030 cells (+18 %), coverage 100 %, predicted 99.8 %. Sphere
+  mesh only: 388,914 cells (388,963), 100 % of the area at level 3 before and after: unchanged.
+- Not measured yet: the cube's Cd at +18 % cells (re-solved in Stage B), the MEDIUM cost; 9.9 % of the cone area
+  still has d > 2 y_c in the rim band (inside the gate).
 
 ## Notes
 

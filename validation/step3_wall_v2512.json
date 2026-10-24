@@ -2811,6 +2811,51 @@
      "max_skewness": 0.4735598,
      "max_aspect": 11.17296
     }
+   },
+   "Sphere_level33": {
+    "setting": {
+     "body": "Sphere",
+     "surface_levels": [
+      3,
+      3
+     ]
+    },
+    "cells": 388914,
+    "body_faces": 6112,
+    "d_gt_2yc_area": 0.09064101168883781,
+    "d_mm_p10_p50_p90": [
+     1.938,
+     1.941,
+     3.575
+    ],
+    "pred_yplus_le_300": 0.9598184872106119,
+    "layers": {
+     "faces": 6112,
+     "target": 5,
+     "mesh_mean": 4.56,
+     "overall_thickness_m": 0.0338,
+     "thickness_pct_of_target": 96.2,
+     "faces_extruded_final": 6064,
+     "coverage_faces_extruded": 0.9921465968586387,
+     "layers_on_extruded_faces": 4.596094986807388
+    },
+    "checkMesh": {
+     "cells": 388914,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 51.57164,
+     "max_skewness": 0.6220671,
+     "max_aspect": 9.101543
+    },
+    "level_area_fraction": {
+     "run_Sphere": {
+      "3": 1.0
+     },
+     "Sphere_level33": {
+      "3": 1.0
+     }
+    },
+    "note": "predicted from run_Sphere's unconverged field at 3000; run_Sphere had 388,963 cells and 6112 body faces"
    }
   },
   "variant_notes": {
@@ -2963,7 +3008,8 @@
     }
    },
    "crossings_note": "mean crossings = sign changes of Cd minus the window mean; reproduces the recorded 21 for run_Sphere 2001-3000. Recorded Cd mean 0.2277 there vs 0.2292 here (0.7 %), same force history, area 3.1215 m2",
-   "conclusion": "the old mesh converges under the same v2512 solver, schemes and gate; the oscillation comes from the step 3 mesh, not from steady RANS on this body at Re 2.67e6. Which step 3 change (curvatureLevel 75 -> 151 cells around, or 5 absolute layers vs 2 relative) is not yet separated"
-  }
+   "conclusion": "the old mesh, continued from its v1912 field at 400 (Cd 0.167 at 400), converges under the identical v2512 solver, schemes and gate; the step 3 mesh from a cold start does not. The mesh is the leading cause; the start field is not separated (D3), and which step 3 change matters (151 vs 75 cells around, 5 absolute vs 2 relative layers) is not separated either"
+  },
+  "D1_locked": "body level (lo2 lo2) in every preset, curvatureLevel removed (docs/reference/step3_wall_spec.md amendment D1)"
  }
 }
