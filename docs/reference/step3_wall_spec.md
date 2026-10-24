@@ -43,3 +43,13 @@ Grill answers (Bilal, 2026-10-24), locked before any code. Measurements: `valida
 - Dropped layers: no extra fallback logic. snappy's layer table (patch, faces, layers, overall
   thickness m and %) is parsed from log.snappyHexMesh into forces.json; gate layer coverage >= 90 %.
   Below that: FAIL reported with the table (re-meshing from u_tau does not address edge or quality drops).
+
+## Q3. Absolute sizes (locked)
+
+- `relativeSizes false`: with true, snappy multiplies firstLayerThickness by the local undistorted cell
+  edge (mesh/snappyHexMesh/snappyHexMeshDriver/snappyLayerDriver.C:1618-1625, edgeLen from the point
+  level at :1563-1566), so the first layer and y+ would halve per refinement level.
+- `minThickness = 0.5 h1` in metres (1.94 mm for L 2 m, U 20 m/s). Points whose stack falls below it get
+  no layers (truncateDisplacement, :2274), leaving a first cell centre about Delta/2 from the wall
+  (y+ about 530 on the sphere); above it a squeezed stack keeps n thinner layers (lower y+, harmless).
+  0.5 h1 is a judgement value, close to the current 0.1 relative on 20.8 mm cells (2.1 mm).
