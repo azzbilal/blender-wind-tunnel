@@ -10,3 +10,5 @@ processor*/
 *.npz
 log.*
 renders/
+# Claude Code worktrees (local, never committed)
+.claude/worktrees/

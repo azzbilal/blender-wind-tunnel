@@ -98,4 +98,9 @@ without the correction.
 
 Add a point-vortex far-field correction (or move the boundary to 100 chords).
 
+Also (found 2026-10-24, step 3 prep): `meshgen.c_grid` uses `case.Setup.first_cell` as the full
+first cell height, while OpenFOAM's `yPlus` uses `nearWallDist` (cell centre, about half the
+height), so the 2D grid runs at about half its nominal y+ (about 25 for the target 50). Fix: use
+2 x `first_cell` as the cell height, and check y+ with the `yPlus` FO.
+
 Accept: Cl at alpha 10 within 1.5 % of NASA TMR.
