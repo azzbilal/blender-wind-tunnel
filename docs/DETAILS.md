@@ -1,0 +1,105 @@
+# Wind Tunnel for Blender: details
+
+How each part works and what was measured. Overview, results tables and limits: [README](../README.md).
+
+## 2D airfoil
+
+- Any 4-digit NACA section, structured C-grid written straight to polyMesh (y+ about 50 nominal, far field
+  20 chords), simpleFoam with k-omega SST and Spalding wall functions.
+- One mesh for the whole angle sweep; forces summed face by face in Python. Results: the NASA TMR table in the [README](../README.md#what-is-checked-and-against-what).
+
+## 3D, any closed mesh
+
+- The **WT Smoke** Geometry Nodes modifier has a **Test Object** field. Assigning a mesh starts a preview
+  (particles slide around its surface), then an automatic OpenFOAM solve (snappyHexMesh, simpleFoam on up to
+  24 cores), cached per shape.
+- The solved field comes back as an OpenVDB volume (**WT Flow**); particles are advected through it and
+  **WT Slice** shows speed or Cp on a movable plane.
+
+## Wall treatment (v0.7.0, spec `docs/reference/step3_wall_spec.md`)
+
+- Wall functions: k-omega SST with `nutUSpaldingWallFunction`, which is continuous in y+, so first
+  cells below y+ 30 are allowed. Target y+ 100 at the first cell centre, sized from a friction velocity
+  anchor u_tau_ref = 0.0386 U (Re_L / 2.67e6)^(-1/14) (0.772 m/s at L 2 m, 20 m/s; the 0.0386 is the
+  area-weighted mean on an earlier, unconverged sphere field, so approximate). y_c = 100 nu / u_tau_ref.
+- Prism layers: first layer height h1 = 2 y_c in metres (`relativeSizes false`), because OpenFOAM's
+  `yPlus` uses the cell-centre distance (about half the first layer); expansion 1.3,
+  n = min(n_half, n_depth) (n_half: layers until the last one reaches half the surface cell; n_depth:
+  the most layers whose stack fits in one surface cell), featureAngle 60,
+  minThickness 0.5 h1. At L 2 m, 20 m/s, COARSE: h1 3.89 mm, 5 layers.
+- Surface refinement: one uniform body level, (3 3) COARSE (L/6 base cells, L/48 at the wall) and
+  (4 4) MEDIUM, no curvature levels.
+- Two gates, written to `forces.json` and shown in the panel: y+ <= 300 on at least 90 % of the body area
+  (area-weighted, OpenFOAM `yPlus` function object) and layer coverage (faces extruded / body faces, from
+  log.snappyHexMesh) at least 90 %. y+ min / mean / max, the 30 to 300 band, y+ < 5, mean layers and stack
+  thickness are listed as information.
+- When the y+ gate fails, the panel adds a cause row: "cut layers" when most of the y+ > 300 area has a
+  first cell centre farther than 2 y_c (snappy dropped layers but kept the smoothed stack height) or
+  "u_tau > sizing" when the failing cells have the design height. There is no automatic re-mesh: the
+  only one that was tried (cone, from the area-mean u_tau) lowered the y+ <= 300 fraction from 82.0 to
+  75.5 %.
+- Measured on COARSE re-runs: the 3D bodies table in the [README](../README.md#what-is-checked-and-against-what). The cone is 26.6 deg half angle, tip upstream
+  (length 2 m, base radius 1 m).
+- Sphere at Re 2.67e6 (2 m, 20 m/s): on the gate-passing mesh (y+ <= 300 on 95.6 %, coverage 99.2 %)
+  steady simpleFoam reaches no steady state within 3000 iterations (Cd band 17.7 % over the last 200,
+  p residual 1.0e-2), so no Cd is reported. An older mesh that converged did so only with y+ mean 822.
+  This Re is above the smooth-sphere drag crisis, which Achenbach measured over Re 5e4 to 6e6 (Achenbach,
+  E. 1972, J. Fluid Mech. 54(3), 565 to 575); a time-averaged URANS run is a documented next step.
+
+## Animating the steady result
+
+The 3D solve is steady (simpleFoam): there is one flow field and it does not change in time. The
+animation only moves the viewpoint through that field. **Animate slice** sweeps WT Slice over
+plus/minus 1 L about the body along X, Y or Z (192 frames, ping-pong, one keyframe per frame);
+every frame samples the same solved field at the plane's true position, nothing is interpolated
+in the data. The label above the slice prints its position in metres and in L, and the legend
+reads the same range inputs as the slice, so the two cannot disagree. Cp = (p - p_inf) / (0.5 rho
+U_inf^2), with p_inf the area-weighted mean static pressure on the inlet patch; the diverging ramp
+puts Cp = 0 on the neutral grey, -1 (blue) and +1 (red, the incompressible stagnation limit) at
+the ends, clamped beyond. The slice stops about one voxel (5 cm) off the body, on purpose.
+
+WT Smoke shows the same steady field as particles carried by its velocity (midpoint rule through
+WT Flow). In solved mode there is no surface slide or push back; particles that stall at the wall
+(sampled speed below 2 % of U_inf) are removed. On the 2 m cube (v0.5.0) no particle entered the
+body over 192 frames and smoke paths stay within 0.06 voxel of an RK4 streamline over 1 L
+(`validation/anim_ab_v2512.json`). Smoke paths are streamlines of a steady field, not a
+time-resolved wake: vortex shedding is not in the data.
+
+## Time-resolved flow
+
+v0.6.0 adds a transient run (TRANSIENT T1, spec `docs/reference/transient_t1_spec.md`): pimpleFoam
+with the same k-omega SST model and spatial schemes as the steady case, second-order backward time
+stepping at a maximum Courant number of 1, started impulsively from the potential flow
+(potentialFoam) on the mesh of the solved steady cube (2 m, 20 m/s, Re 2.7e6, 359618 cells). U and p
+are written every 1/60 s for 2 s (20 flow-throughs L/U); every written time becomes one frame, an
+OpenVDB file in a sequence, so scene frame k shows flow time k/60 s. WT Slice stays fixed at y = 0 in
+Cp mode, the label prints t and t U/L, and the smoke (charcoal streaks 0.3 L long at U_inf, 60 a frame,
+released in a sheet within 0.05 L of the slice plane) advances exactly 1/60 s of flow per frame through
+the time-varying field. The README's hero GIF is cut from this video (120 frames at 12 fps, so 10 s of video
+for 2 s of flow).
+
+What the run shows, and what it does not (`validation/transient_t1_v2512.json`, 2026-10-24):
+
+- The start-up: the starting vortex pair leaves the edges and the recirculation behind the cube
+  grows and settles. Cp near the edges is far below the steady values at first (-4.24 at t = 1/60 s,
+  the potential-flow start at sharp edges) and relaxes to -0.73 / +1.03 by t = 2 s (steady field:
+  -0.68 / +1.02).
+- No sustained vortex shedding. The side force oscillates between t = 1.0 and 1.6 s and then decays;
+  after 1.7 s |Cs|, |Cl| < 0.008. No Strouhal number is reported. The only free-stream cube reference
+  found (Klotz et al. 2014, St 0.125) is for Re <= 390, a different regime.
+- Cd averaged over 1 to 2 s is 1.124, 2.2 % below the steady 1.150 on the same mesh. This compares two
+  models, it is not a validation; neither number is checked against experiment yet (FIX_PLAN step 5).
+- Mass conservation: the time step continuity error is at most 1.95e-12 at every frame (gate 1e-6).
+  No smoke particle entered the cube in 196334 particle-frames (v0.6.1). The test is on particle
+  centres: a streak (radius L/160) drawn next to the top face can reach up to about 11 mm into the
+  cube (radius 12.5 mm minus the 1.15 mm closest centre gap); the front face hides that from the T1 camera.
+
+Limits, plainly: this is URANS, so turbulence is modelled, not resolved; only unsteadiness much
+slower than the turbulence can appear, and on this coarse mesh with wall functions the solution
+settles toward the steady state. A finer mesh or a scale-resolving model (DES or LES) might shed;
+that has not been tested. The frames are interpolated onto a 5 cm grid, so small vortices are
+smoothed. The transient run is not yet in the panel: it is driven by `case3d.write_transient_case`,
+`export_field.py --frames`, `viz3d.build_transient` and the scripts in `tools/audit/` (`t1_gates.py`,
+`t1_scene.py`, `anim_inside.py`, `t1_frames_check.py`, `t1_visibility.py`). An unbaked Simulation
+Zone moves only when frames are played in order and a render reads only that cache, so
+`t1_scene.render()` plays frames 1 to 120 before it renders.

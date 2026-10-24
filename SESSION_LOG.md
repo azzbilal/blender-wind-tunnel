@@ -23,7 +23,7 @@ version 1.0.0, cone secondary source). No solver-side change, no new run.
 - 2042c78 FIX_PLAN status block (steps 0 to 3 closed with date, version, record, review; 4 to 7 documented next
   steps). ACCURACY_AUDIT: a preamble and one status line per "What fails" finding, original text unchanged.
 - 8b1832f version 0.7.0 -> 1.0.0 in manifest and `bl_info`; manifest tagline "Wind tunnel: OpenFOAM in WSL, flow
-  field back in Blender", `bl_info` description updated, `website` = https://github.com/azzbilal/blender-openfoam-wind-tunnel.
+  field back in Blender", `bl_info` description updated, `website` = https://github.com/azzbilal/blender-wind-tunnel (repo renamed in README round 1).
   README rewritten; CHANGELOG.md 0.4.0 to 1.0.0 (version/date pairs from `git log -G'^version = '` on the manifest).
   Tests 127 OK (2 expected failures), `py tools/deploy.py` (14 files), headless smoke `ok: true`, version [1, 0, 0].
 - WSL: `~/wind_tunnel/_step3` (5.0 GB) and `~/wind_tunnel/_t1` (5.4 GB) deleted (Q7).
@@ -42,7 +42,9 @@ version 1.0.0, cone secondary source). No solver-side change, no new run.
   engineering decisions, acceptance criteria and visual QA were mine.") are drafts in Bilal's voice for him to edit.
 
 ### Open issues
-- HIL visual QA (Stage 5) of the rendered README: pending on Bilal. The Mermaid block is not render-tested locally.
+- HIL visual QA (Stage 5) of the rendered README: round 1 applied (30-second summary, Details moved to
+  `docs/DETAILS.md`, OpenFOAM trade mark notice, Achenbach 1972 citation, repo renamed `blender-wind-tunnel`,
+  method sentence); further rounds pending on Bilal. The Mermaid block is not render-tested locally.
 - Push: Bilal's step (commands in the chat reply of this session). The CI badge and the manifest `website` assume
   the GitHub account `azzbilal`; change both if the repo lives elsewhere.
 - The archived 0.7.0 entry (verbatim, `docs/archive/session_log_2026-10.md`) quotes the old user paths and the

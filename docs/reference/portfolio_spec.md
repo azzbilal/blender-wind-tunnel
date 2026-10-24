@@ -17,7 +17,7 @@ handoff), extended by Bilal's request of the same day. No solver-side changes, n
 
 | Q | Topic | Answer |
 |---|---|---|
-| Q1 | Repository | `blender-openfoam-wind-tunnel`, public. Creating the repo and pushing are Bilal's steps; Claude prepares the commands. |
+| Q1 | Repository | `blender-wind-tunnel`, public (renamed from `blender-openfoam-wind-tunnel` in README round 1, 2026-10-24). Creating the repo and pushing are Bilal's steps; Claude prepares the commands. |
 | Q3a | Workflow record | CLAUDE.md, SESSION_LOG.md, `docs/archive/`, `docs/prompts/`, `docs/reviews/` stay public as evidence of method. The absolute Windows user paths are replaced with neutral wording. Git history is kept as is (no rewrite). |
 | Q3b | CLAUDE.md owner section | Kept, reworded neutrally as "Working conventions": the style and evidence rules stay, the biography line goes; machine specs stay. |
 | Q4a | Hero GIF | Cut from `renders/transient_t1_cube.mp4` (two-pass palette, about 640 px wide). |
