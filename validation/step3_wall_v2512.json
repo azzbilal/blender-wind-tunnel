@@ -3008,7 +3008,7 @@
     }
    },
    "crossings_note": "mean crossings = sign changes of Cd minus the window mean; reproduces the recorded 21 for run_Sphere 2001-3000. Recorded Cd mean 0.2277 there vs 0.2292 here (0.7 %), same force history, area 3.1215 m2",
-   "conclusion": "the old mesh, continued from its v1912 field at 400 (Cd 0.167 at 400), converges under the identical v2512 solver, schemes and gate; the step 3 mesh from a cold start does not. The mesh is the leading cause; the start field is not separated (D3), and which step 3 change matters (151 vs 75 cells around, 5 absolute vs 2 relative layers) is not separated either"
+   "conclusion": "the old mesh, continued from its v1912 field at 400 (Cd 0.167 at 400), converges under the identical v2512 solver, schemes and gate; the step 3 mesh from a cold start does not. The mesh is the leading cause; the start field is not separated (D3), and which step 3 change matters (151 vs 75 cells around, 5 absolute vs 2 relative layers) is not separated either; resolved by sphere_mapped_start: the start field is ruled out"
   },
   "D1_locked": "body level (lo2 lo2) in every preset, curvatureLevel removed (docs/reference/step3_wall_spec.md amendment D1)",
   "D2_failure_split": {
@@ -3061,6 +3061,71 @@
     }
    },
    "D2_locked": "no automatic re-mesh; forces.json reports y_c and the y+ > 300 split at d = 2 y_c (spec amendment D2)"
+  },
+  "sphere_mapped_start": {
+   "what": "D3 discriminator: sphere_attrib's converged field at 1306 (old mesh) mapped onto run_Sphere's step 3 mesh (mapFields -consistent -parallelSource; same blockMeshDict and patch names), continued under the step 2 gate, cap 3000",
+   "case": "/home/bilal/wind_tunnel/_step3/diag/sphere_mapped",
+   "wall_seconds": 937,
+   "stats": {
+    "iterations": [
+     1,
+     3000
+    ],
+    "p_initial_last": 0.01202231,
+    "windows": {
+     "1-200": {
+      "Cd_mean": 0.2586,
+      "Cd_min": 0.0803,
+      "Cd_max": 0.3313,
+      "mean_crossings_per_1000": 10.0
+     },
+     "201-400": {
+      "Cd_mean": 0.3446,
+      "Cd_min": 0.3072,
+      "Cd_max": 0.3912,
+      "mean_crossings_per_1000": 25.0
+     },
+     "401-1000": {
+      "Cd_mean": 0.2731,
+      "Cd_min": 0.2338,
+      "Cd_max": 0.3525,
+      "mean_crossings_per_1000": 10.0
+     },
+     "1001-2000": {
+      "Cd_mean": 0.2803,
+      "Cd_min": 0.2133,
+      "Cd_max": 0.3963,
+      "mean_crossings_per_1000": 7.0
+     },
+     "2001-3000": {
+      "Cd_mean": 0.2672,
+      "Cd_min": 0.211,
+      "Cd_max": 0.3977,
+      "mean_crossings_per_1000": 6.0
+     },
+     "2801-3000": {
+      "Cd_mean": 0.2211,
+      "Cd_min": 0.2149,
+      "Cd_max": 0.2297,
+      "mean_crossings_per_1000": 25.0
+     }
+    },
+    "gate": {
+     "converged": false,
+     "iteration": 3000,
+     "reasons": [
+      "stopped at the cap of 3000 iterations",
+      "Cd band 6.71 % >= 0.5 % over iterations 2801 to 3000",
+      "p residual 1.2e-02 >= 0.001 (trend +0.06 orders per 100 iterations)"
+     ]
+    }
+   },
+   "gate_window_2801_3000_Cd_mean_min_max": [
+    0.2211,
+    0.2149,
+    0.2297
+   ],
+   "conclusion": "oscillates like the cold start (Cd 0.21 to 0.40, p residual 1.2e-2 at 3000): the start field is ruled out, the step 3 mesh is the cause. The old mesh converged with first cell centres at d 16 mm, y+ mean 822, y+ <= 300 on 17.8 % (Stage 1, bodies.Sphere), so its steady solution comes from a mesh that fails the y+ gate"
   }
  }
 }

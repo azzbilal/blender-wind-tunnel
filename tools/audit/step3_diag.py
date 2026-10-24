@@ -259,6 +259,40 @@ def extra(variants=EXTRA):
     (D / "bundle.json").write_text(json.dumps(bundle, indent=1))
 
 
+def sphere_mapped():
+    """D3 discriminator: the old mesh's converged field (sphere_attrib, 1306) mapped onto run_Sphere's step 3 mesh
+    (mapFields -consistent; same blockMeshDict and patches), continued under the step 2 gate to the cap."""
+    src, rs, c = D / "sphere_attrib", S3 / "run_Sphere", D / "sphere_mapped"
+    if c.exists():
+        shutil.rmtree(c)
+    c.mkdir(parents=True)
+    shutil.copytree(rs / "system", c / "system")
+    shutil.copytree(rs / "constant", c / "constant")
+    shutil.copytree(rs / "0.orig", c / "0")
+    shutil.copy(rs / "convergence.py", c / "convergence.py")
+    t0 = time.time()
+    subprocess.run(["bash", "-c", BASH + f"cd '{c}' && "
+                    "mapFields ../sphere_attrib -sourceTime 1306 -consistent -parallelSource > log.mapFields 2>&1 && "
+                    "decomposePar -force > log.decomposePar 2>&1 && rm -f wt_stop && "
+                    "mpirun -np 24 --oversubscribe simpleFoam -parallel > log.simpleFoam 2>&1"],
+                   stdin=subprocess.DEVNULL, check=False)
+    wall = time.time() - t0
+    Af = json.loads((rs / "forces.json").read_text())["frontal_area_m2"]
+    out = {"case": str(c), "mesh": "run_Sphere (step 3 mesh), 388,963 cells", "start": "sphere_attrib 1306 mapped",
+           "wall_seconds": round(wall),
+           "stats": oscillation(c, Af, windows=((1, 200), (201, 400), (401, 1000), (1001, 2000), (2001, 3000), (2801, 3000)))}
+    h = convergence.history(c)
+    if h["time"]:
+        v = convergence.gate(h["time"], h["fx"], h["fy"], h["fz"], h["p_initial"], cap=3000)
+        q = 0.5 * 1.225 * 20.0 ** 2 * Af
+        out["gate_window_Cd_mean_min_max"] = [v["fx"]["mean"] / q, v["fx"]["min"] / q, v["fx"]["max"] / q]
+        out["gate_band"] = v["band"]
+    bundle = json.loads((D / "bundle.json").read_text())
+    bundle["sphere_mapped"] = out
+    (D / "bundle.json").write_text(json.dumps(bundle, indent=1))
+    log(json.dumps(out))
+
+
 def main():
     D.mkdir(parents=True, exist_ok=True)
     L, sz = base_sizing()
@@ -329,4 +363,4 @@ def solve(name):
 
 if __name__ == "__main__":
     a = sys.argv[1:]
-    extra() if a == ["extra"] else extra(EXTRA2) if a == ["extra2"] else extra(EXTRA3) if a == ["extra3"] else solve(a[1]) if a[:1] == ["solve"] else main()
+    extra() if a == ["extra"] else extra(EXTRA2) if a == ["extra2"] else extra(EXTRA3) if a == ["extra3"] else sphere_mapped() if a == ["mapped"] else solve(a[1]) if a[:1] == ["solve"] else main()
