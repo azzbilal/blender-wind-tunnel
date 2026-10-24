@@ -56,6 +56,13 @@ panel never shows a number while the gate is open.
 Accept: y+ in 30 to 300 on at least 80 % of the area for sphere, cube and cone; layer
 coverage at least 90 %.
 
+Amended 2026-10-24 by the step 3 grill (docs/reference/step3_wall_spec.md, which supersedes the plan
+above where they differ): first cell-centre y+ 100 on a measured u_tau anchor, first layer 2 y_c in
+metres, n = min(half-cell rule, one-cell stack cap), expansion 1.3, featureAngle 60, curvatureLevel
+(24 0 lo2 -1). Accept (as locked): y+ <= 300 on at least 90 % of the area and layer coverage (faces
+extruded / body faces) at least 90 % for sphere, cube and cone; the 30 to 300 band and y+ < 5 fractions
+are reported, not gated (y+ < 30 is valid with nutUSpaldingWallFunction). The panel warns on the two gates.
+
 ## Step 4. Domain
 
 - Inlet 5 L upstream, outlet 15 L downstream, sides so that blockage is at most 1 %.

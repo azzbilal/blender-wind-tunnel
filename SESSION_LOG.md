@@ -1,162 +1,140 @@
 # Session log
 
-Current state and the NEXT prompt only. Every earlier entry, including the 2026-10-24 "TRANSIENT T1
-closed (Stages 3 to 6), add-on 0.6.0" entry that this one supersedes, is kept verbatim in
+Current state and the NEXT prompt only. Every earlier entry, including the 2026-10-24 "T1 polish, smoke
+streaks visible, add-on 0.6.1" entry that this one supersedes, is kept verbatim in
 `docs/archive/session_log_2026-10.md`.
 
-## 2026-10-24: T1 polish, smoke streaks visible, add-on 0.6.1 (commit ed49139)
+## 2026-10-24: FIX_PLAN step 3, Stages 1 to 4 done, stopped at the Stage 4 decision (Bilal's call)
 
-### Done
-- Problem (Bilal): in `renders/transient_t1_cube.mp4` (0.6.0) the streaks showed only at the release.
-- Root cause found by the red check, not the one in the brief: an unbaked Simulation Zone advances only
-  when frames are played in order and a render only reads that cache. `t1_scene.render()` rendered
-  without playing, so every frame showed only the particles born in it (gate 4 was unaffected: it plays
-  frames in order). Fix: `t1_scene.play()` runs frames 1..120 before any render. Second, smaller cause
-  (the brief's): radius L/600 drew 0.8 px wide streaks.
-- Red: new `tools/audit/t1_visibility.py` (headless). Threshold over >= 400 px, wake >= 1000 px at
-  frames 30, 60, 120 (about 2 and 5 full streaks). Classifier sRGB max <= 80, max - min <= 16.
-- Green: `transient.plain_smoke_inputs` radius L/160 (12.5 mm, 3.0 px at 8.44 mm/px for the T1 camera:
-  15 m, 50 mm lens, 36 mm sensor, 1280 px), trail 0.3 L at U_inf, 60 a frame. Sheet, integration,
-  colour, Time Scale, Substeps, Lifetime unchanged.
+Work is on main (worktree `step3-wall` removed, branch deleted, `.claude/worktrees/` ignored). Code changed
+but NOT deployed and NOT version-bumped: Blender still runs add-on 0.6.1; the repo's add-on code is the
+step 3 code at version 0.6.1 until Stage 5.
 
-| Visibility (over / wake px) | Frame 30 | Frame 60 | Frame 120 | Verdict |
-|---|---|---|---|---|
-| 0.6.0 as shipped | 0 / 0 | 0 / 0 | 0 / 0 | FAIL |
-| 0.6.0 streaks, frames played | 0 / 2 | 3 / 0 | 0 / 0 | FAIL |
-| trial 40 a frame | 11800 / 3751 | 12353 / 2523 | 10061 / 3798 | PASS, sparse |
-| trial 120 a frame | 25692 / 12278 | 25527 / 7546 | 20879 / 9495 | PASS, rejected (bands hide Cp) |
-| **0.6.1 shipped (60 a frame)** | 17033 / 5973 | 17479 / 3670 | 13376 / 5452 | **PASS** |
-| no-smoke baseline, every run | 0 / 0 | 0 / 0 | 0 / 0 | |
+### Done (commits 5a9ded9 .. 4fd8039, then this handoff)
+- Stage 1 (5a9ded9, 6d9be29): v2512 `yPlus` and `wallShearStress` post-hoc on copies in `~/wind_tunnel/_step3`
+  (`tools/audit/step3_yplus.py`). u_tau from yPlus nu / d agrees with sqrt(|wallShearStress|) (median ratio
+  1.000 to 1.012); first layer = 2.00 x nearWallDist measured (sphere 0.03204 m vs d 0.01598 m).
+  In-band 30 to 300 before step 3: sphere 0.18, cone 0.31, cube 0.61.
+- Two prompt facts corrected: `_t1/Cube/0` and `processor*/0` are the potentialFoam start, not a converged
+  field (no converged steady cube field is left on disk; Stage 1 used T1 URANS at t = 2 s); `case.Setup.first_cell`
+  returns y/L (2D chord-1 case), so for L = 2 m and y+ 50 it is 0.95 mm, not 0.47 mm. 2D half-y+ finding moved
+  to FIX_PLAN step 7.
+- Grill Q1 to Q5 and probe amendments A1 to A4 locked in `docs/reference/step3_wall_spec.md` (final b76bad0,
+  rules table at the top). Probes (mesh only): `tools/audit/step3_probe.sh`, `step3_probe2.sh`,
+  `step3_probe.py`, `step3_icosphere.py`; results in `validation/step3_wall_v2512.json` (probe_2026_10_24,
+  probe_round2, probe_round3).
+- Stage 3 TDD (2e6a6d4): `case3d.layer_sizing` and the snappy text, `curvatureLevel (24 0 lo2 -1)`, Allrun
+  `yPlus` FO after reconstructPar, `export_field.yplus_record / layer_record / wall_record` into
+  `forces.json["wall"]`, `results.wall_lines / remesh_u_tau`, `__init__.apply_forces3d`, panel rows with
+  warning, one automatic re-mesh (never on Load 3D). Tests 122 OK (2 expected failures, step 4); the step 3
+  marker test passes; headless smoke check passes incl. the panel warning row (pass: CHECKMARK, fail: ERROR
+  in alert).
+- Stage 4 tracer (4fd8039, `tools/audit/step3_tracer.py`): real Allrun, COARSE, 24 ranks, cap 3000, fresh cases
+  `~/wind_tunnel/_step3/run_<body>`.
+- Housekeeping: `.claude/settings.json` (`worktree.bgIsolation none`) committed at Bilal's request. An empty
+  `.claude/worktrees/step3-wall` folder could not be removed while this session's shell held it: delete it.
 
-- Gate 4 re-run (12 fps, shipped inputs): 196334 particle-frames, 0 inside, closest centre 1.15 mm
-  (Chebyshev 0.99 mm), max alive 2064: PASS.
-- Video re-rendered live (WT_T1 via `t1_scene.py`, handler paused, 46 s), stills
-  `renders/t1_still_030/060/120.png`; Bilal's OK given. WT_T1 removed, his "Scene" compared identical to
-  the snapshot (objects, transforms, frame, camera, render settings, every add-on property); no WT or
-  T1 datablocks left; handler and timer on; 0.6.1 loaded live.
-- Auto solve guard (Bilal): the add-on finds WT Smoke by global name but reads Auto solve from the
-  current scene, so any scene with it on could solve T1Cube (this produced the unrequested
-  `~/wind_tunnel/3d_T1Cube`, 2026-10-24 00:55 to 01:04, 298 MB, now deleted; its leftover WT_T1 was
-  still in the live Blender at the start of this session and was removed). `t1_scene.build()` now
-  switches Auto solve off on every scene (values kept in `bpy.app.driver_namespace`, never in the
-  .blend) and `cleanup()` restores them before the handler. `tools/audit/t1_autosolve_check.py` passes.
-- Records: `validation/transient_t1_v2512.json` (`gate4_particles` 0.6.1, old kept as
-  `gate4_particles_0_6_0`, new `visibility_0_6_1`), spec "0.6.1 polish" note, README "Time-resolved
-  flow", `tools/audit/README.md` (two new scripts). Tests 103 OK (3 expected failures; the 0.6.0 entry's
-  "104" was a miscount, HEAD had 103), deployed, headless smoke check and `t1_frames_check.py` ok.
-  Stale `renders/t1_still_012.png` (white-streak round) deleted.
+### Locked decisions (spec, short)
 
-### T1 results (unchanged by this polish, from the 0.6.0 entry)
-
-| Quantity | Result |
+| Item | Locked |
 |---|---|
-| Run | 2564 steps, solve 1346 s (22.4 min), dt 6.3e-4 to 8.3e-4 s, Courant max 1.24 after step 1 |
-| Gate 3 continuity, 120 frames | max 1.95e-12 (frame 45), limit 1e-6: PASS |
-| Gate 4 particles (0.6.1 render: sheet, 12 fps, 60 a frame) | 196334 particle-frames, 0 inside, closest 1.15 mm: PASS |
-| Gate 1 Cd mean 1 to 2 s / 0.5 to 1 s | 1.1243 / 0.9208; steady 1.1498 same mesh (-2.2 %); Cd(2 s) 1.127 |
-| Gate 2 St | not measurable: Cs, Cl oscillate to 0.07 at 1.0 to 1.6 s then decay below 0.008 (no sustained shedding) |
-| Cp min/max, frames 1 / 12 / 45 / 120 | -4.24/+1.159, -2.11/+1.023, -1.39/+1.016, -0.73/+1.026 (steady -0.68/+1.024) |
+| Q1 | y_c = 100 nu / u_tau_ref, u_tau_ref = 0.0386 U (Re_L / Re_a)^(-1/14), Re_a = 20 x 2 / 1.5e-5; h1 = 2 y_c in metres (3.89 mm for 2 m, 20 m/s). Gate y+ <= 300 on 90 % of area; band and y+ < 5 reported only. Re-mesh once from the run's own u_tau before FAIL (statistic now known to be wrong, D2) |
+| Q2 + A1 | firstAndExpansion, r 1.3, n = min(n_half, n_depth) (stack <= one surface cell): 5 layers on COARSE 2 m bodies; nGrow 0 |
+| A2 | coverage = faces extruded / body faces (final "Extruding" line), gate 90 %; mean layers and thickness % reported |
+| A3 | featureAngle 60 (120 lowered cone coverage 97.0 -> 93.7 %, raised cube skewness 0.47 -> 2.45) |
+| Q3 | relativeSizes false, minThickness 0.5 h1 (1.94 mm) |
+| Q4 | curvatureLevel (24 0 lo2 -1), COARSE default: sphere at level 3 everywhere, 151 cells around (75 before) |
+| Q5 | re-run Sphere, Cube, Cone; panel warns on the two 90 % gates; FIX_PLAN step 3 acceptance text amended (in this handoff commit) |
+| A4 | Suzanne's 2 faces at skewness 4.70 pre-exist (castellation and snap); not gated |
 
-### Decisions
-- 60 a frame chosen between the 40 and 120 trials by eye (Bilal OK on the stills and video).
-- The visibility check renders through `t1_scene.build()` and `play()`, so it tests the real render path.
-- "Over the cube" means above and below it in this view: with the +-0.05 L sheet no streak passes in
-  front of the -Y face.
+### Stage 4 results
+
+| Body | Converged (step 2 gate) | Cd window mean, vs step 2 | y+ <= 300 (gate 90 %) | Coverage (gate 90 %) | y+ min / mean / max | Band 30 to 300 | Cells |
+|---|---|---|---|---|---|---|---|
+| Cube | yes, at 801 (step 2: 1830) | 1.1431, -0.58 % (1.1498) | 99.8 %, pass | 100 %, pass (3.37 / 5) | 2.5 / 55 / 303 | 90.2 % | 369,664 |
+| Cone | yes, at 781 | 0.5840, +0.12 % (0.5833) | 82.0 %, FAIL | 97.0 %, pass (3.07 / 5) | 9.8 / 203 / 1483 | 79.4 % | 363,277 |
+| Cone, Q1 re-mesh (u_tau 0.698, h1 4.30 mm) | yes, at 716 | 0.5847, +0.24 % | 75.5 %, FAIL | 97.2 % | 10.5 / 221 / 1478 | 73.3 % | 363,307 |
+| Sphere | no: cap 3000, Cd 0.20 to 0.26 (21 mean crossings per 1000 it), p residual 8.0e-3 | not reportable | 96.0 %, on an unconverged field | 99.2 % (4.56 / 5) | 6 / 119 / 1171 | 90.5 % | 388,963 |
+
+Area-weighted y+ p50 / p90 / p95: cone 150 / 419 / 566, cone re-mesh 167 / 459 / 624, sphere 115 / 171 / 274,
+cube 45 / 85 / 135. Wall time: sphere 1164 s, cube 306 s, cone 292 s, cone re-mesh 272 s.
+
+Cone diagnosis: every face with y+ > 300 (18.0 % of area) has d > 2 y_c (d 5.2 / 6.7 / 14.7 mm at p10 / p50 / p90,
+target 1.94 mm); with d = y_c everywhere the gate would pass on 100 %. They sit on the conical side from
+x = -0.1 to 0.98 m (base at x = 1.0): layer stepping toward the base rim spreads the smoothed point thickness
+over fewer layers. Their u_tau (median 0.85 m/s) is not unusual; the area-mean u_tau (0.698) is below the
+anchor (0.772), so the Q1 re-mesh thickened h1 and made the gate worse.
+
+### Open decisions (bring one at a time after the diagnostic bundle)
+- D1 cone layer setting (nSmoothThickness, nBufferCellsNoExtrude, h1 scaling with n pinned, or featureAngle).
+- D2 the Q1 re-mesh statistic: area-mean u_tau is wrong for stepped-layer failures; a p90-y+ scaling of h1
+  under-delivers if n is allowed to rise (n_depth 6 at h1 2.5 mm) and cannot fix bare faces (about 3 %).
+- D3 the sphere: recorded reason (steady RANS at Re 2.67e6 does not converge) or other treatment, after the
+  attribution run.
 
 ### Open issues
-- k (new, known display limit): gate 4 tests particle centres; a 12.5 mm streak drawn 1.15 mm from the
-  top face reaches up to about 11 mm into the cube (`streak_overlap_max_m` 0.01135 in the record). The
-  -Y face hides it from the T1 camera; another view would show it.
-- T1 review O1 (cell centres = mean of face centres, up to 1.2 % in |U|) moved to FIX_PLAN step 6.
-- T1 review O2 (open): `visibility_0_6_1.red_0_6_0_streaks_with_play_through` stores the pixel counts
-  but not the inputs; add OVERRIDES `{"Radius": 0.00333, "Trail": 0.01, "Rate": 71.43}` to that entry.
-- T1 review O3 (open): "no sustained shedding" is shown for t <= 2 s only; the spec's "tends to the
-  steady state" extrapolates beyond the run. The tail rule's "spread" is the unweighted sample standard
-  deviation over time steps; the spec should name that statistic.
-- The recirculation bubble behind the cube is nearly empty of streaks by t = 2 s: upstream particles
-  follow the shear layers. That is the flow, not a rendering fault; seeding inside the bubble is a
-  styling question for a later slice.
-- c, d, g, h as before (inlet non-uniformity; preview push back at concave edges; legend and label
-  face -Y; section view).
-- f, extended: the add-on has no load path for a time-resolved field; WT_T1 needs the Test Object
-  handler suspended and Auto solve off (`tools/audit/t1_scene.py`). Panel integration is a later slice.
-- j: URANS on this mesh does not sustain shedding; whether a finer mesh or DES would is untested.
-- ANIMATION A+B review O2 (Moreland intermediates) still open.
-- Disk: T1 review closed (item 10 fixed 2026-10-24); `~/wind_tunnel/_review_t1` and `~/wind_tunnel/_anim`
-  deleted, `~/wind_tunnel/_t1/Cube` (5.4 GB) kept. `renders/t1_frames` (2.7 GB plus VDBs) is local
-  scratch, regenerable.
+- New, step 3: coarse-STL warning in the add-on (edge length or facet angle vs local cell, optional subdivide
+  before export; icosphere 100 % vs UV sphere 62 % at n 8); UV sphere zero-layer faces at 67 and 79 deg from the
+  poles, not the pole fans, cause not resolved; faces with fewer layers get a thicker first cell (now the cone's
+  failure mechanism); Suzanne layers collapse at any depth (30 to 35 %) and curvatureLevel did not refine it;
+  `forces.json["wall"]["yplus"]["u_tau_mean"]` is the wrong re-mesh statistic (D2).
+- 2D: `meshgen.c_grid` uses `first_cell` as the full cell height (half the nominal y+): FIX_PLAN step 7.
+- Carried from the T1 entry (archived): k (streak display limit, up to about 11 mm into the cube); T1 review O2
+  (add OVERRIDES to `visibility_0_6_1.red_0_6_0_streaks_with_play_through`) and O3 (shedding shown for t <= 2 s
+  only; name the tail-spread statistic in the spec); c, d, g, h (inlet non-uniformity; preview push back at
+  concave edges; legend and label face -Y; section view); f (no add-on load path for a time-resolved field);
+  j (URANS on this mesh does not sustain shedding); ANIMATION A+B review O2 (Moreland intermediates).
+- Pending on Bilal: `sudo apt purge -y libopenfoam openfoam-examples` (orphaned 1912).
+- Disk (WSL): `~/wind_tunnel/_step3` 2.6 GB (Stage 1 copies, probe, probe2, probe3, run_Sphere, run_Cube,
+  run_Cone, run_Cone_remesh, tracer.json/log); keep the run_* cases until the diagnostic bundle is done.
+  `~/wind_tunnel/_t1/Cube` 5.4 GB kept (T1 record).
 
-### REVIEWER PROMPT (fresh session; report to `docs/reviews/transient_t1_review.md`)
-Review slice TRANSIENT T1 including the 0.6.1 polish (commits b2eea87..aa121a3, 7cf7d8f, ed49139 and
-the handoffs). Read only CLAUDE.md, this entry, `docs/reference/transient_t1_spec.md`,
-`docs/prompts/transient_t1.md` and the code you check.
-STAGE 0 GATE: none (this is the review).
-Facts established, do not re-derive: the two tables above; v2512 forceCoeffs columns by header name;
-writeObjects with adjustableRunTime lands writes on frame times; Blender volume sequence: scene frame k
-loads file k with frame_start 1, offset 0; an unbaked Simulation Zone must be played in order before a
-render reads it.
-Check, each PASS/FAIL with evidence:
-1. The case text matches spec Q3 (`case3d.transient_*`; `~/wind_tunnel/_t1/Cube/system`), the only
-   intended differences from the steady schemes are backward and no `bounded`.
-2. Gate 3: re-parse `~/wind_tunnel/_t1/Cube/log.pimpleFoam` independently of `transient.py` and confirm
-   120 frames, max 1.95e-12.
-3. Gate 1: recompute the 1 to 2 s Cd mean from `postProcessing/forceCoeffs/0/coefficient.dat` with your own
-   trapezoid code (expect 1.1243).
-4. Gate 2: plot or tabulate Cs and Cl over 0.5 to 2 s and judge whether "no sustained shedding" is right;
-   check the tail-spread rule in `tools/audit/t1_gates.py` is stated in the spec.
-5. Frame export: for one frame, compare a few voxels of `frames/flow_0060.npz` with an IDW you compute from
-   a `reconstructPar -time` of that frame (on a copy), within 1e-6 relative.
-6. Gate 4: re-run `tools/audit/anim_inside.py -- renders/t1_frames 120` (12 fps): 0 inside, 196334
-   particle-frames.
-7. Visibility: re-run `tools/audit/t1_visibility.py -- renders/t1_frames <scratch>` headless; expect
-   exit 0 and the 0.6.1 counts above (deterministic seed). Then judge the check itself: open one
-   `vis_0060.png` and confirm the regions and classifier match its docstring, that the no-smoke baseline
-   is 0, and that the red runs are recorded (`visibility_0_6_1.red_*` in the validation record). Reproduce
-   one red: rerun with OVERRIDES `{"Radius": 0.00333, "Trail": 0.01, "Rate": 71.43}` (the 0.6.0 inputs)
-   and expect FAIL.
-8. Auto solve guard: `tools/audit/t1_autosolve_check.py` passes headless; read `t1_scene.cleanup()` and
-   confirm the order (WT data removed, Auto solve restored, then handler).
-9. `tools/audit/t1_frames_check.py` and `tools/blender_smoke.py` pass headless; tests 103 OK (3 expected
-   failures).
-10. README "Time-resolved flow" claims nothing beyond the record (no "validated", no St) and states
-    the display limit (issue k).
-11. Bilal's live Blender was left with only his own data (ask him; do not open his scenes).
-RULES: no sudo, no em dashes, asterisk terms plus glossary, never "validated" without a cited reference.
+### NEXT PROMPT (FIX_PLAN step 3, resume at the Stage 4 decision)
+Slice: FIX_PLAN step 3, wall treatment and surface resolution, resumed after Stage 4. Solver-side, so every
+number is checked against OpenFOAM's definitions and recorded in `validation/step3_wall_v2512.json` with date,
+mesh size and iteration count. Work on main (no worktree).
 
-- New (2026-10-24, step 3 prep): `meshgen.c_grid` uses `case.Setup.first_cell` as the full first cell
-  height, while y+ is measured at the cell centre (`nearWallDist`, half the height), so the 2D grid runs
-  at about half its nominal y+. Not fixed; Bilal to decide in the step 3 grill or step 7.
+STAGE 0 GATE: none new (the T1 review has no open FAIL; step 3 has no review yet).
 
-### Step 3 started 2026-10-24 (branch worktree-step3-wall)
-Stage 0 done (48216f2). The full slice prompt, with the facts established while loading context, is
-`docs/prompts/step3_wall.md`; resume from it (Stage 1 measurement done 2026-10-24, commit 5a9ded9,
-`validation/step3_wall_v2512.json`; next: grill Q1). Stage 1 corrected two prompt facts: `_t1/Cube/0` is the
-potentialFoam start, not a converged field; `first_cell` returns y/L (0.95 mm for y+ 50 on L = 2 m). Work is
-on main now (worktree removed). Measured: first layer = 2.00 x nearWallDist (sphere, 100 % coverage).
+CONTEXT TO LOAD (stay well under 100k tokens): CLAUDE.md; this entry; `docs/reference/step3_wall_spec.md`;
+`docs/reference/step2_convergence_reference.md` (the gate); in `wind_tunnel/case3d.py` `layer_sizing` and the
+addLayersControls part of `snappy_dict`; `tools/audit/step3_probe.py`, `step3_probe2.sh`, `step3_tracer.py`.
+Facts established, do not re-derive: the Stage 4 table and the cone diagnosis above; the locked decisions
+table; v2512 layer table columns (patch, faces, target, mesh, thickness m, %); snappy writes per-face
+`nSurfaceLayers` and `thickness` with `writeFlags (layerFields)`; `cellLevel` does not survive
+reconstructParMesh (levels from face size); mpirun eats a heredoc on stdin (case lists on fd 3);
+`set -e` or `set -u` before sourcing the OpenFOAM bashrc kills the script.
 
-### NEXT PROMPT (FIX_PLAN step 3, wall mesh and y+; after the T1 review has no open FAIL)
-Slice: FIX_PLAN step 3, wall treatment and surface resolution. Solver-side (case3d), so every
-number is checked against OpenFOAM's definitions and a cited reference, and recorded in
-`validation/` with date, mesh size and iteration count. Write the full prompt to
-`docs/prompts/step3_wall.md` in the structure of `docs/prompts/anim_ab.md` as the first act.
+STAGE A DIAGNOSTIC BUNDLE (AFK, copies only in `~/wind_tunnel/_step3`, about 20 min; nothing locked here)
+1. Cone mesh-only variants, about 15 s each, from `~/wind_tunnel/3d_Cone` with the locked settings except:
+   - `nSmoothThickness` 10 -> 2;
+   - `nBufferCellsNoExtrude -1` (terminate in one go: faces full or bare, no stepping);
+   - h1 x 0.64 with n pinned at 5 (the proportional route);
+   - featureAngle 120, judged by d rather than coverage.
+   Metric per variant: area fraction with d > 2 y_c (36 % now), coverage (faces extruded), mean layers,
+   checkMesh, and the y+ <= 300 fraction predicted from `run_Cone`'s per-face u_tau (yPlus nu / d at 781)
+   mapped onto the new body faces by nearest face centre (y+ = d_new u_tau / nu).
+2. One cone solve (about 5 min) of the best variant through the real Allrun to the step 2 gate: y+ gate,
+   coverage, Cd against 0.5833.
+3. Sphere attribution, about 11 min: a copy of `~/wind_tunnel/3d_Sphere` (old mesh, 2 relative layers, v1912
+   fields at 400) continued with v2512 simpleFoam from 400 to 3000 with the step 2 gate FOs. If it oscillates
+   too, the cause is this body at this Re in steady RANS, not step 3.
+Record all three in `validation/step3_wall_v2512.json`, commit.
 
-STAGE 0 GATE: the previous slice's review in `docs/reviews/` has no open FAIL.
-CONTEXT TO LOAD: CLAUDE.md; SESSION_LOG.md current entry; `docs/FIX_PLAN.md` step 3;
-`docs/ACCURACY_AUDIT.md` (wall treatment and y+ findings only); `docs/reference/step2_convergence_reference.md`
-(the gate); in `wind_tunnel/case3d.py` the snappyHexMeshDict writer (addLayersControls,
-refinementSurfaces, features) and `case.Setup.first_cell` (grep).
-Facts established, do not re-derive: v2512 function objects work (`yPlus`, `forces`, `forceCoeffs`;
-`tools/audit/step0_check.py`); a run is solved only when the step 2 gate passes; Cp uses the inlet p_inf.
-Acceptance (FIX_PLAN): y+ in 30 to 300 on at least 80 % of the area for sphere, cube and cone; layer
-coverage at least 90 %; y+ min/mean/max and the in-band area fraction written to forces.json; panel
-warning under 80 %.
-GRILL (HIL, one question at a time, recommendation first): target y+ and first-layer formula
-(flat-plate Cf on L, cite the correlation), layer count and expansion, `relativeSizes false` vs true
-with snappy's fallback, curvature or distance refinement to reach about 100 cells around a sphere,
-which of the solved cases to re-run (copies only) and the cost.
-Then TDD (case text tests first), tracer on copies (`~/wind_tunnel/_step3`), Stage 5 close
-(version bump, commit with the physical quantity changed and by how much), Stage 6 handoff with a
-REVIEWER PROMPT to `docs/reviews/step3_review.md`.
-Live Blender: any scene built by a script must keep Auto solve off and the handler paused while it
-exists (pattern: `tools/audit/t1_scene.py`).
-RULES: no sudo, no em dashes, asterisk terms plus glossary, never "validated" without a cited reference.
+STAGE B AMENDMENTS (HIL, one at a time, recommendation first, wait for Bilal): D1 cone layer setting;
+D2 the Q1 re-mesh statistic (code change: forces.json must carry what the new rule needs); D3 the sphere
+(recorded reason or treatment). Lock each in the spec. Then TDD for any code change (red, then green),
+re-run the affected bodies (copies) to the gate.
+
+STAGE 5 CLOSE (AFK): tests green, `py tools/deploy.py`, headless smoke check, version bump 0.6.1 -> 0.7.0 in
+`wind_tunnel/blender_manifest.toml` and `bl_info`, README note on wall treatment (y+ target, layers, gates,
+the panel rows; no "validated"), commit with the physical quantity changed and by how much (y+ <= 300
+fraction and Cd change per body). Tell Bilal to restart Blender or toggle the add-on.
+
+STAGE 6 HANDOFF (AFK): SESSION_LOG entry (archive this one verbatim to `docs/archive/`), REVIEWER PROMPT to
+`docs/reviews/step3_review.md` (push: layer height vs nearWallDist, Cf citation status, band and y+ <= 300
+fractions recomputed from the yPlus field independently, coverage from the log, gate passed on every re-run,
+the cone diagnosis), NEXT PROMPT for FIX_PLAN step 4 (domain).
+
+RULES: no sudo, no em dashes, asterisk terms plus glossary, never "validated" without a cited reference;
+Stop at stage boundaries; no new heavy stage after about 150k tokens; hand off at about 200k; never compact.
