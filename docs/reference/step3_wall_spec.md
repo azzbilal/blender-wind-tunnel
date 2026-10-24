@@ -69,3 +69,19 @@ Grill answers (Bilal, 2026-10-24), locked before any code. Measurements: `valida
   and the resulting refinement level per region (snappy measures curvature from the triangles).
   If sphere layer coverage is under 90 % (8 layers, 93 mm stack on 41.7 mm cells): stop and show Bilal
   the table; no fallback chosen without him.
+
+## Q5. Re-runs and panel (locked)
+
+- Stage 4 re-runs Sphere, Cube, Cone (the acceptance bodies), one at a time on 24 ranks, each a fresh case
+  written by the new case3d from its existing body.stl into `~/wind_tunnel/_step3/run_<body>`, through the
+  real Allrun to the step 2 gate. Estimate from v2512 _step1 logs (0.24 / 0.25 / 0.32 s per iteration at
+  about 350k cells): cube about 7.5 min (1830 it), cone about 4 min (725 it), sphere up to 13 min (cap),
+  times the cell growth the probe measures; plus one Q1 re-mesh per body that fails the y+ gate.
+- Record per body: cells, layer coverage, y+ min/mean/max, y+ <= 300 fraction, band fraction, y+ < 5
+  fraction, gate iteration, Cd window mean; Cd change against step 2 for cube (1.1498) and cone (0.5833);
+  the sphere's gated v2512 Cd becomes its baseline (no comparison claimed).
+- Panel: warning when y+ <= 300 covers under 90 % of the area or layer coverage is under 90 %; band
+  fraction (30 < y+ < 300) and y+ < 5 fraction shown as information. FIX_PLAN step 3 acceptance text is
+  updated to these gates at close.
+- Probe also meshes Suzanne (mesh only, no solve): cell count, layer coverage, checkMesh at featureAngle
+  60 vs 120, to check irregular and concave shapes. If Suzanne fails checkMesh at 120: stop and show Bilal.
