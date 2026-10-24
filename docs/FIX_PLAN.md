@@ -1,5 +1,22 @@
 # Fix plan (work in this order)
 
+## Status (v1.0.0, 2026-10-24)
+
+| Step | State | Closed | Add-on | Record | Review |
+|---|---|---|---|---|---|
+| 0. OpenFOAM build | closed | 2026-10-19 | 0.4.1 | `validation/step0_v2512.json` | `docs/reviews/step0_review.md` |
+| 1. Cp reference | closed | 2026-10-21 | 0.4.2 | `validation/step1_cp_v2512.json` | `docs/reviews/step1_review.md` |
+| 2. Convergence gate | closed | 2026-10-21 | 0.4.3, 0.4.4 | `validation/step2_gate_v2512.json` | `docs/reviews/step2_review.md` |
+| 3. Wall treatment | closed | 2026-10-24 | 0.7.0 | `validation/step3_wall_v2512.json` | none (Bilal's decision, see step 3) |
+| 4. Domain | documented next step | | | | |
+| 5. Validation set | documented next step | | | | |
+| 6. Visualisation honesty | documented next step (solved-mode slide already off since 0.5.0) | | | | |
+| 7. 2D far field | documented next step | | | | |
+
+The project closed as a portfolio piece at add-on 1.0.0. Steps 4 to 7 are written up below with their
+acceptance checks but were not started. Further next steps logged outside this plan: a time-averaged URANS
+fallback for bodies with no steady state (the sphere, step 3 amendment D3) and a guarded u_tau re-mesh (D2).
+
 Each step has an acceptance check. Record every validation number in `validation/` with date,
 cell count, iterations and mesh setting. Audit references: `docs/ACCURACY_AUDIT.md`.
 
