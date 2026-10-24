@@ -1,9 +1,9 @@
 # Wind Tunnel for Blender (OpenFOAM in WSL)
 
-> **In 30 seconds.**
+> **In 30 seconds.**<br>
 > **What:** a Blender add-on that puts any closed mesh, or a NACA 4-digit airfoil, in a virtual wind tunnel and brings forces, surface Cp and the 3D flow field back into Blender.<br>
 > **Stack:** OpenFOAM v2512 in WSL Ubuntu (snappyHexMesh, simpleFoam, pimpleFoam, k-omega SST with wall functions), Python, Blender 5.2 (OpenVDB, Geometry Nodes).<br>
-> **Checked:** NACA 0012 at Re 6e6 against NASA TMR (Cl -2.1 % / -3.7 % at alpha 10 / 15); 3D body forces match OpenFOAM's own `forces` within 0.15 % of drag; cube and cone pass the convergence gate and both wall gates.<br>
+> **Checked:** NACA 0012 at Re 6e6 against NASA TMR (Cl -2.1 % / -3.7 % at alpha 10 / 15, Cd +5.1 % to +18.5 % over alpha 0 to 15); 3D body forces match OpenFOAM's own `forces` within 0.15 % of drag; cube and cone pass the convergence gate and both wall gates.<br>
 > **Status:** 1.0.0, closed as a portfolio piece; no 3D result has been compared with experiment yet (FIX_PLAN step 5, documented, not started).
 
 [![tests](https://github.com/azzbilal/blender-wind-tunnel/actions/workflows/tests.yml/badge.svg)](https://github.com/azzbilal/blender-wind-tunnel/actions/workflows/tests.yml)
