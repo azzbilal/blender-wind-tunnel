@@ -131,6 +131,20 @@ carries y_c (y+ target x nu / u_tau_ref).
 - Logged, not built: a guarded re-mesh (only when most of the failing area has d <= 2 y_c, sized with the
   area-weighted p90 u_tau of those faces at y+ 100), if a body ever shows a u_tau-driven failure.
 
+## Amendment D3 (Bilal, 2026-10-24): the sphere, recorded, not treated
+
+- Recorded reason: at Re 2.67e6 on the gate-passing step 3 mesh (388,963 cells, level 3 everywhere, unchanged by
+  D1), steady simpleFoam reaches no steady state from a cold start (run_Sphere: Cd 0.20 to 0.26 at 2001 to 3000,
+  p residual 8.0e-3) or from a converged coarse-mesh field (mapFields of the old mesh's 1306: Cd 0.21 to 0.40, p
+  residual 1.2e-2 at 3000). The old mesh (339,042 cells, 2 relative layers, level (2 3)) converges under the
+  identical v2512 solver, schemes and gate at 1306, Cd 0.1622, band 0.25 %, but with first cell centres at 16 mm,
+  y+ mean 822, y+ <= 300 on 17.8 % of the area: a mesh that fails the y+ gate.
+- Treatment: none in step 3. Stage B re-runs the sphere unchanged as the record; no Cd is reported (step 2 rule).
+  The sphere check stays in FIX_PLAN step 5 (subcritical Re against Achenbach 1972, away from the drag crisis).
+  Wall versus surface resolution as the trigger is not separated (not needed: neither can be reverted).
+- Open issue: a URANS fallback with time-averaged forces for bodies whose steady run fails the gate on a
+  gate-passing mesh.
+
 ## Notes
 
 - A4: Suzanne fails checkMesh by 2 faces at skewness 4.70 at featureAngle 60 and 120, and the current solved
