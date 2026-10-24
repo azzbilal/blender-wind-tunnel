@@ -46,8 +46,9 @@ version 1.0.0, cone secondary source). No solver-side change, no new run.
   `docs/DETAILS.md`, OpenFOAM trade mark notice, Achenbach 1972 citation, repo renamed `blender-wind-tunnel`,
   method sentence); round 2 applied (intro cut to one sentence, Achenbach wording kept, "What I learned"
   approved as is by Bilal, draft banner removed). README QA closed. The Mermaid block is not render-tested locally.
-- Push: Bilal's step (commands in the chat reply of this session). The CI badge and the manifest `website` assume
-  the GitHub account `azzbilal`; change both if the repo lives elsewhere.
+- Pushed 2026-10-24 on Bilal's go: https://github.com/azzbilal/blender-wind-tunnel (public, main and tag v1.0.0,
+  topics blender, openfoam, cfd, aerodynamics, python, blender-addon). First CI run 40119991524: 127 tests OK,
+  2 expected failures.
 - The archived 0.7.0 entry (verbatim, `docs/archive/session_log_2026-10.md`) quotes the old user paths and the
   `azzbilal` website string; git history also keeps them (no rewrite, Q3a).
 - `~/wind_tunnel/_step1` still exists in WSL (not in the Q7 list); can be deleted.
