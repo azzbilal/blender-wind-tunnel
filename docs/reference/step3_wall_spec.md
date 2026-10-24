@@ -128,6 +128,11 @@ carries y_c (y+ target x nu / u_tau_ref).
   run_Sphere) 0 % of the y+ > 300 area has d <= 1.5 y_c; on faces with d <= 1.5 y_c the area-weighted y+ p90 is
   54 to 163, so no u_tau-driven failure has occurred. A cut-layer failure is not fixed by a new h1 (Stage A V3:
   h1 x 0.64 lowered the prediction to 77.1 % and coverage to 88.2 %).
+- Note (Stage B, 2026-10-24): the "0 %" above holds for the five runs listed, not in general. The Stage B sphere
+  (run_Sphere_d1, 388,788 cells) has 0.15 % of its area with y+ > 300 at d <= 2 y_c (`gt300_design_first_cell`
+  0.0015; the d > 2 y_c share is 4.30 %). It is the first nonzero design-height share, it uses the D2 split
+  (2 y_c, not 1.5 y_c), and it is read from an unconverged snapshot at iteration 3000 (amendment D3), so it is not
+  evidence of a u_tau-driven failure. Cube and cone Stage B: 0 %.
 - Logged, not built: a guarded re-mesh (only when most of the failing area has d <= 2 y_c, sized with the
   area-weighted p90 u_tau of those faces at y+ 100), if a body ever shows a u_tau-driven failure.
 

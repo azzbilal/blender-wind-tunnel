@@ -297,7 +297,9 @@ def verdict_lines(f: dict):
 def wall_lines(f: dict):
     """Panel lines for y+ and prism layers (docs/reference/step3_wall_spec.md Q5) and whether to warn:
     the gates are y+ <= 300 on 90 % of the area and layers on 90 % of the faces; the band and y+ < 5
-    fractions, mean layers and thickness are information. Unmeasured counts as a warning."""
+    fractions, mean layers and thickness are information. Unmeasured counts as a warning. Under a failed
+    y+ gate a cause row follows (amendment D2): "cut layers" when the y+ > 300 area with d > 2 y_c is at
+    least the one with d <= 2 y_c, else "u_tau > sizing"; no row when forces.json lacks the split keys."""
     w = f.get("wall") or {}
     yp, ly = w.get("yplus"), w.get("layers")
     lines, alert = [], False

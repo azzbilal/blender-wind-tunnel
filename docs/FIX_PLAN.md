@@ -62,6 +62,23 @@ metres, n = min(half-cell rule, one-cell stack cap), expansion 1.3, featureAngle
 (24 0 lo2 -1). Accept (as locked): y+ <= 300 on at least 90 % of the area and layer coverage (faces
 extruded / body faces) at least 90 % for sphere, cube and cone; the 30 to 300 band and y+ < 5 fractions
 are reported, not gated (y+ < 30 is valid with nutUSpaldingWallFunction). The panel warns on the two gates.
+Amendments D1 to D3 (same spec): uniform body level (lo2 lo2), COARSE (3 3), MEDIUM (4 4), curvatureLevel
+removed; no automatic re-mesh, a failing y+ gate reports its cause (cut layers or u_tau above the sizing anchor);
+the sphere at Re 2.67e6 is recorded, not treated.
+
+Accept (final, as closed 2026-10-24, add-on 0.7.0): both gates, y+ <= 300 on at least 90 % of the body area and
+layer coverage at least 90 %, on every body re-run. Stage B re-runs (COARSE, OpenFOAM v2512, 24 ranks, step 2
+convergence gate, `validation/step3_wall_v2512.json` key `stageB_rerun_2026_10_24`):
+
+| Body | Cells | Gate iteration | y+ <= 300 | Coverage | Cd window mean |
+|---|---|---|---|---|---|
+| Cube | 437,192 | 786 | 99.8 % | 100 % | 1.1448 (step 2 1.1498, -0.43 %) |
+| Cone | 383,135 | 716 | 96.95 % (step 3 Stage 4 82.0 %) | 98.4 % | 0.5846 (step 2 0.5833, +0.23 %) |
+| Sphere | 388,788 | not converged at 3000 | 95.6 % (snapshot) | 99.2 % | none (amendment D3) |
+
+Both wall gates pass on all three meshes; the sphere has no steady state on its gate-passing mesh, so no Cd.
+Step 3 closed without a separate review session (Bilal, 2026-10-24): the project is ending as a portfolio
+piece and steps 4 to 7 below are documented next steps, not scheduled work.
 
 ## Step 4. Domain
 

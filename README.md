@@ -35,6 +35,39 @@ Blender (Windows)                              WSL Ubuntu
 - The solved field comes back as an OpenVDB volume (**WT Flow**); particles are advected
   through it and **WT Slice** shows speed or Cp on a movable plane.
 
+### Wall treatment (v0.7.0, spec `docs/reference/step3_wall_spec.md`)
+
+- Wall functions: k-omega SST with `nutUSpaldingWallFunction`, which is continuous in y+, so first
+  cells below y+ 30 are allowed. Target y+ 100 at the first cell centre, sized from a friction velocity
+  anchor u_tau_ref = 0.0386 U (Re_L / 2.67e6)^(-1/14) (0.772 m/s at L 2 m, 20 m/s; the 0.0386 is the
+  area-weighted mean on an earlier, unconverged sphere field, so approximate). y_c = 100 nu / u_tau_ref.
+- Prism layers: first layer height h1 = 2 y_c in metres (`relativeSizes false`), because OpenFOAM's
+  `yPlus` uses the cell-centre distance (about half the first layer); expansion 1.3,
+  n = min(n_half, n_depth) (n_half: layers until the last one reaches half the surface cell; n_depth:
+  the most layers whose stack fits in one surface cell), featureAngle 60,
+  minThickness 0.5 h1. At L 2 m, 20 m/s, COARSE: h1 3.89 mm, 5 layers.
+- Surface refinement: one uniform body level, (3 3) COARSE (L/6 base cells, L/48 at the wall) and
+  (4 4) MEDIUM, no curvature levels.
+- Two gates, written to `forces.json` and shown in the panel: y+ <= 300 on at least 90 % of the body area
+  (area-weighted, OpenFOAM `yPlus` function object) and layer coverage (faces extruded / body faces, from
+  log.snappyHexMesh) at least 90 %. y+ min / mean / max, the 30 to 300 band, y+ < 5, mean layers and stack
+  thickness are listed as information.
+- When the y+ gate fails, the panel adds a cause row: "cut layers" when most of the y+ > 300 area has a
+  first cell centre farther than 2 y_c (snappy dropped layers but kept the smoothed stack height) or
+  "u_tau > sizing" when the failing cells have the design height. There is no automatic re-mesh: the
+  only one that was tried (cone, from the area-mean u_tau) lowered the y+ <= 300 fraction from 82.0 to
+  75.5 %.
+- Measured on COARSE re-runs (OpenFOAM v2512, 24 ranks, step 2 convergence gate, 2026-10-24,
+  `validation/step3_wall_v2512.json`): cube 437,192 cells, y+ <= 300 on 99.8 % of the area, coverage
+  100 %, Cd 1.1448; cone (30 deg half angle) 383,135 cells, 96.95 %, 98.4 %, Cd 0.5846. These are
+  mesh-quality checks, not a comparison with experiment; the reference comparison is a documented
+  next step (FIX_PLAN step 5).
+- Sphere at Re 2.67e6 (2 m, 20 m/s): on the gate-passing mesh (y+ <= 300 on 95.6 %, coverage 99.2 %)
+  steady simpleFoam reaches no steady state within 3000 iterations (Cd band 17.7 % over the last 200,
+  p residual 1.0e-2), so no Cd is reported. An older mesh that converged did so only with y+ mean 822.
+  This Re is above the smooth-sphere drag crisis (about 3e5 to 4e5, value from memory); a time-averaged
+  URANS run is a documented next step.
+
 ## Animating the result
 
 The 3D solve is steady (simpleFoam): there is one flow field and it does not change in time. The

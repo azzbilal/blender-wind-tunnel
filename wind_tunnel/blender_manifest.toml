@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "wind_tunnel"
-version = "0.6.1"
+version = "0.7.0"
 name = "Wind Tunnel (OpenFOAM)"
 tagline = "Airfoil polars from OpenFOAM running in WSL"
 maintainer = "Bilal Azzouzi"
