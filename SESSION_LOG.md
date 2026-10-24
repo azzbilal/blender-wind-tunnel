@@ -84,7 +84,8 @@ STAGE 5 CLOSE (AFK):
    min(n_half, n_depth), uniform body level (3 3) COARSE / (4 4) MEDIUM, the two gates (y+ <= 300 on 90 % of the
    area, layer coverage 90 %), the panel rows including the cause row, no automatic re-mesh, the sphere's recorded
    state at Re 2.67e6 (no steady state on the gate-passing mesh, no Cd). No "validated".
-5. FIX_PLAN step 3 acceptance text updated to the two gates (spec Q5), with the Stage B numbers.
+5. FIX_PLAN step 3 acceptance text updated to the two gates (spec Q5), with the Stage B numbers; the
+   `results.wall_lines` docstring mentions the D2 cause row.
 6. Commit with the physical quantity changed and by how much (per body: y+ <= 300 fraction and Cd change, from
    the table above). Tell Bilal to restart Blender or toggle the add-on.
 
