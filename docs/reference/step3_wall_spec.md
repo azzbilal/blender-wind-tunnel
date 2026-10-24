@@ -53,3 +53,19 @@ Grill answers (Bilal, 2026-10-24), locked before any code. Measurements: `valida
   no layers (truncateDisplacement, :2274), leaving a first cell centre about Delta/2 from the wall
   (y+ about 530 on the sphere); above it a squeezed stack keeps n thinner layers (lower y+, harmless).
   0.5 h1 is a judgement value, close to the current 0.1 relative on 20.8 mm cells (2.1 mm).
+
+## Q4. Surface resolution (locked)
+
+- Body entry in refinementSurfaces gets `curvatureLevel (24 0 lmax -1)`, lmax = the body's max surface
+  level (3 on COARSE, 4 on MEDIUM). COARSE stays the default.
+- v2512 per triangle: level = round(log2(nCurvCells level0EdgeLength / r)), raised up to lmax only
+  (mesh/snappyHexMesh/refinementSurfaces/refinementSurfaces.C:1240-1250); level0EdgeLength is the
+  background cell (applications/utilities/mesh/generation/snappyHexMesh/snappyHexMesh.C:1384-1388);
+  curvature is reset on sharp edges (:1043-1131). With level0 = L/6: level = round(log2(4 L / r)).
+- Expected: sphere (r = L/2) level 3 everywhere, 151 cells around (75 now); cone circumferential radius
+  at the base r/cos(26.6 deg) = 1.12 m, level 3; cube flat faces unchanged (features stay level 3).
+- Probe (with the Q2 probe): snappy only on copies of the cube and the sphere. Record cell count,
+  cells around the sphere, layer coverage, checkMesh, the sphere STL tessellation (segments and rings)
+  and the resulting refinement level per region (snappy measures curvature from the triangles).
+  If sphere layer coverage is under 90 % (8 layers, 93 mm stack on 41.7 mm cells): stop and show Bilal
+  the table; no fallback chosen without him.
