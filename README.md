@@ -10,12 +10,9 @@
 ![version](https://img.shields.io/badge/add--on-1.0.0-blue)
 ![licence](https://img.shields.io/badge/licence-GPL--3.0--or--later-green)
 
-A Blender add-on that puts any closed mesh, or a NACA 4-digit airfoil, into a virtual wind tunnel: it
-writes an OpenFOAM case, solves incompressible RANS (k-omega SST, wall functions) with **OpenFOAM v2512 in
-WSL Ubuntu**, and brings forces, surface pressure and the 3D flow field back into Blender as an OpenVDB
-volume, a Cp slice and Geometry Nodes smoke. The project was run as an accuracy exercise: an audit of the
-first working version, then an ordered fix plan where every step has an acceptance check and every number
-is recorded with its date, mesh and iteration count in `validation/`.
+The project was run audit first: an accuracy audit of the first working version, then an ordered fix plan
+where every step has an acceptance check and every number is recorded with its date, mesh and iteration
+count in `validation/`.
 
 ![Transient start-up flow around a 2 m cube at 20 m/s: Cp on the y = 0 slice and smoke streaks](docs/media/hero_transient_cube.gif)
 
