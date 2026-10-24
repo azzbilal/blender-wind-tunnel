@@ -2169,5 +2169,283 @@
    "Cone: coverage 97.0 % (60) vs 93.7 % (120), mean layers 3.06 vs 2.89, thickness 80.8 vs 76.0 %, tet quality failures max 16 vs 197; checkMesh OK at both; max skewness 1.08 at both.",
    "Against the Q2 criterion (coverage rises AND checkMesh clean AND non-ortho and skewness no worse): 120 fails on the cone (coverage falls) and on the cube (coverage unchanged at 100 %, skewness worse)."
   ]
+ },
+ "stage4_tracer_2026_10_24": {
+  "what": "real Allrun (case3d step 3 writer, COARSE (2 3), wake 2, L/6, 24 ranks, cap 3000), fresh cases from each body.stl in ~/wind_tunnel/_step3/run_<body>; tools/audit/step3_tracer.py (Q1 re-mesh via results.remesh_u_tau)",
+  "runs": [
+   {
+    "body": "Sphere",
+    "root": "/home/bilal/wind_tunnel/_step3/run_Sphere",
+    "status": "done",
+    "wall_seconds": 1164,
+    "sizing": {
+     "u_tau_ref": 0.772,
+     "y_c": 0.0019430051813471502,
+     "h1": 0.0038860103626943004,
+     "delta": 0.041666666666666664,
+     "n_half": 8,
+     "n_depth": 5,
+     "n": 5,
+     "min_thickness": 0.0019430051813471502,
+     "expansion": 1.3
+    },
+    "cells": 388963,
+    "converged": false,
+    "iterations": 3000,
+    "reasons": [
+     "stopped at the cap of 3000 iterations",
+     "Cd band 21.17 % >= 0.5 % over iterations 2801 to 3000",
+     "p residual 8.0e-03 >= 0.001 (trend -0.14 orders per 100 iterations)"
+    ],
+    "Cd_mean": 0.24095557146452998,
+    "Cd_band": 0.21168417917157403,
+    "wall": {
+     "yplus": {
+      "min": 6.261734,
+      "mean": 118.74724586269585,
+      "max": 1171.176,
+      "le_300": 0.9598184872106119,
+      "band_30_300": 0.904501205117646,
+      "lt_5": 0.0,
+      "gate": true,
+      "required": 0.9,
+      "u_tau_mean": 0.7539537901253661
+     },
+     "layers": {
+      "coverage": 0.9921465968586387,
+      "faces_extruded": 6064,
+      "body_faces": 6112,
+      "layers_target": 5,
+      "layers_mean": 4.56,
+      "thickness_m": 0.0338,
+      "thickness_pct": 96.2,
+      "gate": true,
+      "required": 0.9
+     },
+     "u_tau_ref": 0.772
+    },
+    "remeshed": false
+   },
+   {
+    "body": "Cube",
+    "root": "/home/bilal/wind_tunnel/_step3/run_Cube",
+    "status": "done",
+    "wall_seconds": 306,
+    "sizing": {
+     "u_tau_ref": 0.772,
+     "y_c": 0.0019430051813471502,
+     "h1": 0.0038860103626943004,
+     "delta": 0.041666666666666664,
+     "n_half": 8,
+     "n_depth": 5,
+     "n": 5,
+     "min_thickness": 0.0019430051813471502,
+     "expansion": 1.3
+    },
+    "cells": 369664,
+    "converged": true,
+    "iterations": 801,
+    "reasons": [],
+    "Cd_mean": 1.1430938658163263,
+    "Cd_band": 0.004814895535363527,
+    "wall": {
+     "yplus": {
+      "min": 2.529951,
+      "mean": 54.66806501209695,
+      "max": 302.5827,
+      "le_300": 0.9983766399682876,
+      "band_30_300": 0.9022640251489982,
+      "lt_5": 0.0005778195536171092,
+      "gate": true,
+      "required": 0.9,
+      "u_tau_mean": 0.3330957181946236
+     },
+     "layers": {
+      "coverage": 1.0,
+      "faces_extruded": 6624,
+      "body_faces": 6624,
+      "layers_target": 5,
+      "layers_mean": 3.37,
+      "thickness_m": 0.0271,
+      "thickness_pct": 80.9,
+      "gate": true,
+      "required": 0.9
+     },
+     "u_tau_ref": 0.772
+    },
+    "remeshed": false
+   },
+   {
+    "body": "Cone",
+    "root": "/home/bilal/wind_tunnel/_step3/run_Cone",
+    "status": "done",
+    "wall_seconds": 292,
+    "sizing": {
+     "u_tau_ref": 0.772,
+     "y_c": 0.0019430051813471502,
+     "h1": 0.0038860103626943004,
+     "delta": 0.041666666666666664,
+     "n_half": 8,
+     "n_depth": 5,
+     "n": 5,
+     "min_thickness": 0.0019430051813471502,
+     "expansion": 1.3
+    },
+    "cells": 363277,
+    "converged": true,
+    "iterations": 781,
+    "reasons": [],
+    "Cd_mean": 0.583995540025835,
+    "Cd_band": 0.002817232844947411,
+    "wall": {
+     "yplus": {
+      "min": 9.778829,
+      "mean": 202.73666711679334,
+      "max": 1482.622,
+      "le_300": 0.8197012624845519,
+      "band_30_300": 0.7943571989934467,
+      "lt_5": 0.0,
+      "gate": false,
+      "required": 0.9,
+      "u_tau_mean": 0.6977287738195745
+     },
+     "layers": {
+      "coverage": 0.9700996677740864,
+      "faces_extruded": 3504,
+      "body_faces": 3612,
+      "layers_target": 5,
+      "layers_mean": 3.07,
+      "thickness_m": 0.028,
+      "thickness_pct": 80.8,
+      "gate": true,
+      "required": 0.9
+     },
+     "u_tau_ref": 0.772
+    },
+    "remeshed": false
+   },
+   {
+    "body": "Cone",
+    "root": "/home/bilal/wind_tunnel/_step3/run_Cone_remesh",
+    "status": "done",
+    "wall_seconds": 272,
+    "sizing": {
+     "u_tau_ref": 0.6977287738195745,
+     "y_c": 0.0021498325083951384,
+     "h1": 0.004299665016790277,
+     "delta": 0.041666666666666664,
+     "n_half": 8,
+     "n_depth": 5,
+     "n": 5,
+     "min_thickness": 0.0021498325083951384,
+     "expansion": 1.3
+    },
+    "cells": 363307,
+    "converged": true,
+    "iterations": 716,
+    "reasons": [],
+    "Cd_mean": 0.5847345427493988,
+    "Cd_band": 0.002611764741636322,
+    "wall": {
+     "yplus": {
+      "min": 10.45658,
+      "mean": 221.028113388385,
+      "max": 1477.813,
+      "le_300": 0.7547434724306252,
+      "band_30_300": 0.7328246757027058,
+      "lt_5": 0.0,
+      "gate": false,
+      "required": 0.9,
+      "u_tau_mean": 0.6961726566888282
+     },
+     "layers": {
+      "coverage": 0.9722761297477128,
+      "faces_extruded": 3507,
+      "body_faces": 3607,
+      "layers_target": 5,
+      "layers_mean": 3.07,
+      "thickness_m": 0.031,
+      "thickness_pct": 81.1,
+      "gate": true,
+      "required": 0.9
+     },
+     "u_tau_ref": 0.697729
+    },
+    "remeshed": true
+   }
+  ],
+  "step2_reference_Cd": {
+   "Cube": 1.1498,
+   "Cone": 0.5833
+  },
+  "Cd_change_pct": {
+   "Cube": -0.58,
+   "Cone": 0.12,
+   "Cone_remesh": 0.25
+  },
+  "yplus_area_quantiles_p50_p90_p95": {
+   "Cone": [
+    149.6,
+    419.3,
+    566.4
+   ],
+   "Cone_remesh": [
+    166.5,
+    458.7,
+    624.4
+   ],
+   "Sphere": [
+    115.2,
+    170.7,
+    273.5
+   ],
+   "Cube": [
+    44.5,
+    85.4,
+    134.7
+   ]
+  },
+  "cone_diagnosis": {
+   "area_yplus_gt_300": 0.1803,
+   "all_gt300_faces_have_d_gt_2yc": true,
+   "d_mm_of_gt300_faces_p10_p50_p90": [
+    5.19,
+    6.68,
+    14.74
+   ],
+   "d_mm_le300_median": 2.83,
+   "y_c_mm": 1.943,
+   "area_d_gt_2yc": 0.357,
+   "le300_if_every_d_were_y_c": 1.0,
+   "where": "conical side from x = -0.1 to 0.98 m (base at x = 1.0), toward the base rim; 0.09 % on the base",
+   "u_tau_of_gt300_faces_p50_p90": [
+    0.85,
+    1.008
+   ],
+   "u_tau_area_mean": 0.6977,
+   "conclusion": "layer stepping (3.07 of 5 layers on average) leaves first cells 3 to 8x thicker than h1 on the side toward the base rim; the area-mean u_tau (0.698 < anchor 0.772) re-mesh made h1 thicker (4.30 mm) and the gate worse (82.0 -> 75.5 %): the Q1 rule's statistic is wrong for this failure"
+  },
+  "sphere_not_converged": {
+   "Cd_mean_min_max": {
+    "1001-2000": [
+     0.2514,
+     0.2078,
+     0.3093
+    ],
+    "2001-3000": [
+     0.2277,
+     0.2037,
+     0.2619
+    ],
+    "2801-3000": [
+     0.2394,
+     0.2113,
+     0.2619
+    ]
+   },
+   "mean_crossings_2001_3000": 21,
+   "p_initial_at_3000": 0.00803,
+   "note": "steady simpleFoam oscillates (about 21 mean crossings per 1000 iterations, Cd 0.20 to 0.26); the step 2 gate does not pass; Cd not reported"
+  }
  }
 }
