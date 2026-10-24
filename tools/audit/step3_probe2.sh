@@ -2,12 +2,12 @@
 # FIX_PLAN step 3 probe round 2 (mesh only, diagnostics): layer stack depth vs refinement level vs STL
 # faceting. Same chain as step3_probe.sh. Copies only: ~/wind_tunnel/_step3/probe2/<name>.
 # Each case: name  source-case  featureAngle  n  curvature-cells-per-radius  curvature-lmax  [stl]
-# Usage (inside WSL): bash step3_probe2.sh ICO_STL
+# Usage (inside WSL): bash step3_probe2.sh ICO_STL [CASES_FILE [OUT_DIR]]  (default: the round-2 list below)
 . /usr/lib/openfoam/openfoam2512/etc/bashrc > /dev/null 2>&1
 export OMPI_MCA_btl_vader_single_copy_mechanism=none
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ICO="$1"
-W=~/wind_tunnel; P=$W/_step3/probe2; mkdir -p "$P"
+ICO="$1"; CASES="$2"
+W=~/wind_tunnel; P=${3:-$W/_step3/probe2}; mkdir -p "$P"
 while read -r name src fa n nc lmax stl <&3; do
   [ -z "$name" ] && continue
   c=$P/$name; rm -rf "$c"; mkdir -p "$c/constant"
@@ -27,7 +27,7 @@ while read -r name src fa n nc lmax stl <&3; do
   rm -rf processor*
   python3 "$HERE/step3_probe.py" report . > /dev/null 2> log.report || echo "$name report FAIL"
   echo "== $name: $(grep 'Finished meshing in' log.snappyHexMesh)"
-done 3<<EOF
+done 3< <([ -n "$CASES" ] && cat "$CASES" || cat <<EOF
 Sphere_L3_n5   3d_Sphere  120 5 24 3
 Sphere_L3_n3   3d_Sphere  120 3 24 3
 Sphere_L4_n4   3d_Sphere  120 4 48 4
@@ -36,3 +36,4 @@ Ico_L3_n5      3d_Sphere  120 5 24 3 $ICO
 Suzanne_L3_n5  3d_Suzanne 120 5 24 3
 Suzanne_L4_n4  3d_Suzanne 120 4 48 4
 EOF
+)

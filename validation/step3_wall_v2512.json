@@ -1875,5 +1875,299 @@
     "Faces with fewer layers get a THICKER first cell: 144 faces (2.6 % of area) with 1 to 4 layers have d 5.85 to 9.92 mm (target 1.94): snappy keeps the smoothed point thickness (7.5 to 18.2 mm) and divides it over fewer layers. Expected y+ there up to about 5x the target (about 500 at sphere u_tau); with the bare faces 3.4 % of area, inside the 10 % y+ gate allowance."
    ]
   }
+ },
+ "probe_round3_2026_10_24": {
+  "what": "mesh only, featureAngle 60 vs 120 at the locked n = min(n_half, n_depth) = 5, cube and cone; tools/audit/step3_probe2.sh with a case file; copies in ~/wind_tunnel/_step3/probe3",
+  "runs": {
+   "Cone_n5_fa120": {
+    "settings": {
+     "L": 2.0,
+     "Re": 2666666.6666666665,
+     "u_tau_ref": 0.7720688886003558,
+     "y_c": 0.0019428318148128896,
+     "h1": 0.003885663629625779,
+     "minThickness": 0.0019428318148128896,
+     "level0": 0.3333333333333333,
+     "delta": 0.041666666666666664,
+     "n": 5,
+     "n_formula": 8,
+     "curvature_cells_per_radius": 24,
+     "curvature_lmax": 3,
+     "featureAngle": 120.0
+    },
+    "stl": {
+     "triangles": 94,
+     "vertices": 49
+    },
+    "layers": {
+     "body": {
+      "faces": 3598,
+      "target": 5,
+      "mesh_mean": 2.89,
+      "overall_thickness_m": 0.0267,
+      "thickness_pct_of_target": 76.0,
+      "non_ortho_failures_per_iteration": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "pyramid_failures_per_iteration": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "faces_extruded_final": 3370,
+      "coverage_faces_extruded": 0.9366314619232907,
+      "layers_on_extruded_faces": 3.085525222551929,
+      "layer_iterations": 4,
+      "tet_quality_failures_per_iteration": [
+       197,
+       16,
+       8,
+       0
+      ],
+      "illegal_faces_per_iteration": [
+       197,
+       16,
+       8,
+       0
+      ]
+     }
+    },
+    "checkMesh": {
+     "cells": 362511,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 55.85403,
+     "max_skewness": 1.07629,
+     "max_aspect": 21.446,
+     "warnings": []
+    },
+    "body_faces": 3598,
+    "level_source": "round(log2(level0 / sqrt(face area)))",
+    "level_area_fraction": {
+     "2": 0.3767544427066095,
+     "3": 0.6206495878561744,
+     "4": 0.0025959694372161063
+    },
+    "level_from_face_area_fraction": {
+     "2": 0.3767544427066095,
+     "3": 0.6206495878561744,
+     "4": 0.0025959694372161063
+    }
+   },
+   "Cone_n5_fa60": {
+    "settings": {
+     "L": 2.0,
+     "Re": 2666666.6666666665,
+     "u_tau_ref": 0.7720688886003558,
+     "y_c": 0.0019428318148128896,
+     "h1": 0.003885663629625779,
+     "minThickness": 0.0019428318148128896,
+     "level0": 0.3333333333333333,
+     "delta": 0.041666666666666664,
+     "n": 5,
+     "n_formula": 8,
+     "curvature_cells_per_radius": 24,
+     "curvature_lmax": 3,
+     "featureAngle": 60.0
+    },
+    "stl": {
+     "triangles": 94,
+     "vertices": 49
+    },
+    "layers": {
+     "body": {
+      "faces": 3598,
+      "target": 5,
+      "mesh_mean": 3.06,
+      "overall_thickness_m": 0.0279,
+      "thickness_pct_of_target": 80.8,
+      "non_ortho_failures_per_iteration": [
+       0,
+       0,
+       0
+      ],
+      "pyramid_failures_per_iteration": [
+       0,
+       0,
+       0
+      ],
+      "faces_extruded_final": 3490,
+      "coverage_faces_extruded": 0.9699833240689272,
+      "layers_on_extruded_faces": 3.15469340974212,
+      "layer_iterations": 3,
+      "tet_quality_failures_per_iteration": [
+       8,
+       16,
+       0
+      ],
+      "illegal_faces_per_iteration": [
+       24,
+       16,
+       0
+      ]
+     }
+    },
+    "checkMesh": {
+     "cells": 363123,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 56.75809,
+     "max_skewness": 1.07629,
+     "max_aspect": 21.446,
+     "warnings": []
+    },
+    "body_faces": 3598,
+    "level_source": "round(log2(level0 / sqrt(face area)))",
+    "level_area_fraction": {
+     "2": 0.3767544427066095,
+     "3": 0.6206495878561744,
+     "4": 0.0025959694372161063
+    },
+    "level_from_face_area_fraction": {
+     "2": 0.3767544427066095,
+     "3": 0.6206495878561744,
+     "4": 0.0025959694372161063
+    }
+   },
+   "Cube_n5_fa120": {
+    "settings": {
+     "L": 2.0,
+     "Re": 2666666.6666666665,
+     "u_tau_ref": 0.7720688886003558,
+     "y_c": 0.0019428318148128896,
+     "h1": 0.003885663629625779,
+     "minThickness": 0.0019428318148128896,
+     "level0": 0.3333333333333333,
+     "delta": 0.041666666666666664,
+     "n": 5,
+     "n_formula": 8,
+     "curvature_cells_per_radius": 24,
+     "curvature_lmax": 3,
+     "featureAngle": 120.0
+    },
+    "stl": {
+     "triangles": 12,
+     "vertices": 8
+    },
+    "layers": {
+     "body": {
+      "faces": 6624,
+      "target": 5,
+      "mesh_mean": 5.0,
+      "overall_thickness_m": 0.0351,
+      "thickness_pct_of_target": 100.0,
+      "non_ortho_failures_per_iteration": [
+       0
+      ],
+      "pyramid_failures_per_iteration": [
+       0
+      ],
+      "faces_extruded_final": 6624,
+      "coverage_faces_extruded": 1.0,
+      "layers_on_extruded_faces": 5.0,
+      "layer_iterations": 1,
+      "tet_quality_failures_per_iteration": [
+       0
+      ],
+      "illegal_faces_per_iteration": [
+       0
+      ]
+     }
+    },
+    "checkMesh": {
+     "cells": 378924,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 36.39392,
+     "max_skewness": 2.453128,
+     "max_aspect": 21.44987,
+     "warnings": []
+    },
+    "body_faces": 6624,
+    "level_source": "round(log2(level0 / sqrt(face area)))",
+    "level_area_fraction": {
+     "2": 0.6826318179054449,
+     "3": 0.3173681820945551
+    },
+    "level_from_face_area_fraction": {
+     "2": 0.6826318179054449,
+     "3": 0.3173681820945551
+    }
+   },
+   "Cube_n5_fa60": {
+    "settings": {
+     "L": 2.0,
+     "Re": 2666666.6666666665,
+     "u_tau_ref": 0.7720688886003558,
+     "y_c": 0.0019428318148128896,
+     "h1": 0.003885663629625779,
+     "minThickness": 0.0019428318148128896,
+     "level0": 0.3333333333333333,
+     "delta": 0.041666666666666664,
+     "n": 5,
+     "n_formula": 8,
+     "curvature_cells_per_radius": 24,
+     "curvature_lmax": 3,
+     "featureAngle": 60.0
+    },
+    "stl": {
+     "triangles": 12,
+     "vertices": 8
+    },
+    "layers": {
+     "body": {
+      "faces": 6624,
+      "target": 5,
+      "mesh_mean": 3.37,
+      "overall_thickness_m": 0.0271,
+      "thickness_pct_of_target": 80.9,
+      "non_ortho_failures_per_iteration": [
+       0
+      ],
+      "pyramid_failures_per_iteration": [
+       0
+      ],
+      "faces_extruded_final": 6624,
+      "coverage_faces_extruded": 1.0,
+      "layers_on_extruded_faces": 3.37,
+      "layer_iterations": 1,
+      "tet_quality_failures_per_iteration": [
+       0
+      ],
+      "illegal_faces_per_iteration": [
+       0
+      ]
+     }
+    },
+    "checkMesh": {
+     "cells": 368124,
+     "failed_checks": 0,
+     "mesh_ok": true,
+     "max_non_ortho": 41.53598,
+     "max_skewness": 0.4739007,
+     "max_aspect": 21.48928,
+     "warnings": []
+    },
+    "body_faces": 6624,
+    "level_source": "round(log2(level0 / sqrt(face area)))",
+    "level_area_fraction": {
+     "2": 0.6826318179054449,
+     "3": 0.3173681820945551
+    },
+    "level_from_face_area_fraction": {
+     "2": 0.6826318179054449,
+     "3": 0.3173681820945551
+    }
+   }
+  },
+  "findings": [
+   "Cube: coverage (faces extruded) 100 % at both; mean layers 3.37/5 (60) vs 5/5 (120); max non-ortho 41.5 vs 36.4; max skewness 0.47 vs 2.45 (worse at 120); checkMesh OK at both.",
+   "Cone: coverage 97.0 % (60) vs 93.7 % (120), mean layers 3.06 vs 2.89, thickness 80.8 vs 76.0 %, tet quality failures max 16 vs 197; checkMesh OK at both; max skewness 1.08 at both.",
+   "Against the Q2 criterion (coverage rises AND checkMesh clean AND non-ortho and skewness no worse): 120 fails on the cone (coverage falls) and on the cube (coverage unchanged at 100 %, skewness worse)."
+  ]
  }
 }
