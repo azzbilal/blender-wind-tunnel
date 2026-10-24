@@ -24,7 +24,7 @@ class Setup3D:
     rho: float = 1.225            # air density, kg/m3 (forces only)
     ground: bool = False          # True: a moving road under the body (cars); False: free air
     cells_per_L: int = 6          # background cells across L
-    surface_levels: tuple = (3, 4)  # refinement on the body: each level halves the cell
+    surface_levels: tuple = (4, 4)  # refinement on the body: each level halves the cell; the body gets lo2
     wake_level: int = 2           # refinement in the box around and behind the body
     layers: int | None = None     # prism layers on the body; None: from the y+ target (layer_sizing), 0: none
     y_plus: float = 100.0         # target y+ of the first cell centre (docs/reference/step3_wall_spec.md)
@@ -33,6 +33,11 @@ class Setup3D:
     write_every: int = 100
     procs: int = 8
     voxels_per_L: int = 40        # resolution of the grid handed to Blender
+
+
+# Add-on mesh presets: (body surface levels, wake level, background cells across L). The body is refined
+# uniformly to lo2 (docs/reference/step3_wall_spec.md amendment D1, was (2 3) and (3 4)).
+PRESETS = {"COARSE": ((3, 3), 2, 6), "MEDIUM": ((4, 4), 2, 8)}
 
 
 # ---------------------------------------------------------------- STL
@@ -149,7 +154,7 @@ def snappy_dict(t, s: Setup3D):
     # A point in the air, well upstream, off every background face.
     loc = (x0 + 1.37 * L + 0.0123 * L, (t["box"][0][1] + t["box"][1][1]) / 2 + 0.0137 * L,
            (z0 + t["box"][1][2]) / 2 + 0.0111 * L if not s.ground else z0 + 2.21 * L + 0.0111 * L)
-    lo1, lo2 = s.surface_levels
+    lo2 = s.surface_levels[1]       # uniform body level (spec amendment D1): mixed levels cut layers
     w = layer_sizing(L, s)
     return HEADER.format(cls="dictionary", obj="snappyHexMeshDict") + f"""castellatedMesh true;
 snap            true;
@@ -171,7 +176,7 @@ castellatedMeshControls
     features ( {{ file "body.eMesh"; level {lo2}; }} );
     refinementSurfaces
     {{
-        body {{ level ({lo1} {lo2}); curvatureLevel (24 0 {lo2} -1); patchInfo {{ type wall; }} }}
+        body {{ level ({lo2} {lo2}); patchInfo {{ type wall; }} }}
     }}
     resolveFeatureAngle 30;
     refinementRegions

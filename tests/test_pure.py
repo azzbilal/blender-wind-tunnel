@@ -143,7 +143,7 @@ class Case3D(unittest.TestCase):
     def test_layers_target(self):
         """FIX_PLAN step 3 as amended (docs/reference/step3_wall_spec.md A1): layers from a target y+, stack
         capped at one surface cell. The add-on's COARSE preset gives 5 on the 2 m cube (MEDIUM: 3)."""
-        coarse = case3d.Setup3D(surface_levels=(2, 3), cells_per_L=6)
+        coarse = case3d.Setup3D(surface_levels=(3, 3), cells_per_L=6)
         self.assertEqual(case3d.layer_sizing(self.t["L"], coarse)["n"], 5)
         self.assertIn("relativeSizes false", (self.root / "system/snappyHexMeshDict").read_text())
 
@@ -1040,7 +1040,7 @@ class WallSizing(unittest.TestCase):
     """FIX_PLAN step 3 (docs/reference/step3_wall_spec.md): layers sized from a target y+ in metres."""
 
     def test_coarse_numbers(self):
-        w = case3d.layer_sizing(2.0, case3d.Setup3D(surface_levels=(2, 3), cells_per_L=6))
+        w = case3d.layer_sizing(2.0, case3d.Setup3D(surface_levels=(3, 3), cells_per_L=6))
         self.assertAlmostEqual(w["u_tau_ref"], 0.0386 * 20.0, places=12)     # the anchor run itself
         self.assertAlmostEqual(w["y_c"], 100 * 1.5e-5 / w["u_tau_ref"], places=12)
         self.assertAlmostEqual(w["y_c"], 1.943e-3, delta=2e-6)
@@ -1053,7 +1053,7 @@ class WallSizing(unittest.TestCase):
         self.assertGreater(w["h1"] * (1.3 ** (w["n"] + 1) - 1) / 0.3, w["delta"])
 
     def test_medium_numbers(self):
-        w = case3d.layer_sizing(2.0, case3d.Setup3D(surface_levels=(3, 4), cells_per_L=8))
+        w = case3d.layer_sizing(2.0, case3d.Setup3D(surface_levels=(4, 4), cells_per_L=8))
         self.assertAlmostEqual(w["delta"], 0.25 / 16, places=12)
         self.assertEqual((w["n_half"], w["n_depth"], w["n"]), (4, 3, 3))
 
@@ -1063,7 +1063,7 @@ class WallSizing(unittest.TestCase):
         self.assertAlmostEqual(w["u_tau_ref"], 0.0386 * 20.0 * (Re / (20.0 * 2.0 / 1.5e-5)) ** (-1 / 14), places=12)
 
     def test_u_tau_override(self):
-        """Q1 re-mesh rule: a run's own u_tau replaces the anchor."""
+        """A given u_tau (audit runs) replaces the anchor in the sizing."""
         w = case3d.layer_sizing(2.0, case3d.Setup3D(u_tau=1.0))
         self.assertAlmostEqual(w["u_tau_ref"], 1.0)
         self.assertAlmostEqual(w["y_c"], 1.5e-3, places=12)
@@ -1076,7 +1076,7 @@ class WallSizing(unittest.TestCase):
         return (Path(tmp.name) / "c/system/snappyHexMeshDict").read_text(), s
 
     def test_snappy_layer_text(self):
-        text, s = self._snappy(surface_levels=(2, 3), cells_per_L=6)
+        text, s = self._snappy(surface_levels=(3, 3), cells_per_L=6)
         w = case3d.layer_sizing(2.0, s)
         lay = _block(text, "addLayersControls")
         keys = {ln.split()[0] for ln in lay.splitlines() if ln.split()}
@@ -1093,11 +1093,23 @@ class WallSizing(unittest.TestCase):
         self.assertIn("nSurfaceLayers 5;", lay)
         self.assertIn("addLayers       true;", text)
 
-    def test_curvature_level(self):
-        text, _ = self._snappy(surface_levels=(2, 3), cells_per_L=6)
-        self.assertRegex(text, r"body \{ level \(2 3\); curvatureLevel \(24 0 3 -1\);")
-        text, _ = self._snappy(surface_levels=(3, 4), cells_per_L=8)
-        self.assertRegex(text, r"body \{ level \(3 4\); curvatureLevel \(24 0 4 -1\);")
+    def test_uniform_body_level(self):
+        """Amendment D1: the body is refined to (lo2 lo2), uniform, with no curvatureLevel; a mixed pair
+        from an old caller still writes the uniform level."""
+        for levels, cells, want in (((3, 3), 6, "3 3"), ((4, 4), 8, "4 4"), ((2, 3), 6, "3 3")):
+            text, _ = self._snappy(surface_levels=levels, cells_per_L=cells)
+            self.assertIn(f"body {{ level ({want}); patchInfo", text)
+            self.assertNotIn("curvatureLevel", text)
+
+    def test_presets(self):
+        """Amendment D1: COARSE (3 3), MEDIUM (4 4); wake level 2; L/6 and L/8; the default is MEDIUM's level."""
+        self.assertEqual(case3d.PRESETS, {"COARSE": ((3, 3), 2, 6), "MEDIUM": ((4, 4), 2, 8)})
+        self.assertEqual(case3d.Setup3D().surface_levels, (4, 4))
+        for name, n in (("COARSE", 5), ("MEDIUM", 3)):     # h1 and n use lo2 only: unchanged by D1
+            (levels, wake, cells) = case3d.PRESETS[name]
+            w = case3d.layer_sizing(2.0, case3d.Setup3D(surface_levels=levels, wake_level=wake, cells_per_L=cells))
+            self.assertEqual(w["n"], n)
+            self.assertAlmostEqual(w["h1"], 3.886e-3, delta=2e-6)
 
     def test_layers_off(self):
         text, _ = self._snappy(layers=0)

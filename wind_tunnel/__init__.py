@@ -538,7 +538,7 @@ def start_run3d(scene, ob, u_tau=None):
     tris = viz3d.object_triangles(ob)
     if len(tris) < 4:
         return "The object has no faces"
-    levels = {"COARSE": ((2, 3), 2, 6), "MEDIUM": ((3, 4), 2, 8)}[p.quality]
+    levels = case3d.PRESETS[p.quality]
     s = case3d.Setup3D(speed=p.wind_speed, ground=p.ground, surface_levels=levels[0], wake_level=levels[1],
                        cells_per_L=levels[2], iterations=p.iterations3d, procs=max(1, min(p.cores or 4, 24)),
                        u_tau=u_tau)
