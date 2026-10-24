@@ -39,5 +39,6 @@ aerospaceweb.org/question/aerodynamics/q0231.shtml, J. Scott, "Drag of Cylinders
 The solved cone is not that cone: measured from `~/wind_tunnel/3d_Cone/constant/triSurface/body.stl` (the same file,
 same md5, as the Stage B `run_Cone_d1`), tip at x = -1 m, base radius 1.0 m at x = +1 m, so 26.6 deg half angle, tip
 upstream; Re about 2.7e6 on the 2 m length at 20 m/s, above the table's range. Both Cd values use the base area
-pi r^2 (our frontal area for a tip-upstream cone). The README states the 0.50 with both mismatches in the same
+pi r^2: the page states "the reference area for a cone is equal to the cross-sectional area of its base" (second
+fetch, 2026-10-24), and it is our frontal area for a tip-upstream cone. The README states the 0.50 with both mismatches in the same
 sentence and gives no percentage. The README's earlier "cone (30 deg half angle)" was wrong and is corrected.

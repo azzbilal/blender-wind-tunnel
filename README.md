@@ -88,7 +88,8 @@ For context on the cone only, from a secondary source: aerospaceweb.org (J. Scot
 Cones", 2005, [q0231](https://aerospaceweb.org/question/aerodynamics/q0231.shtml)) tabulates Cd 0.50 for a
 cone of 30 deg half angle, tip first, for Re 1e4 to 1e6, and credits its cone-drag-versus-angle graph to
 Hoerner, *Fluid-Dynamic Drag*. The cone here has a 26.6 deg half angle and runs at Re about 2.7e6, so this
-is not a like-for-like comparison and no percentage is given; both values use the base area pi r^2. No cube
+is not a like-for-like comparison and no percentage is given. Both values use the base cross-section pi r^2
+(the page states this reference area for cones; here it is the frontal area of a tip-upstream cone). No cube
 reference is cited.
 
 ## Engineering highlights
@@ -258,7 +259,8 @@ Zone moves only when frames are played in order and a render reads only that cac
   version nothing could be compared with OpenFOAM's own numbers. Moving to the openfoam.com v2512 build
   was step 0 of the fix plan, and the first thing it allowed was a check of my own force integration.
 - **A fixed iteration count is not a result.** The cube's Cd at 400 iterations changed by about 35 %
-  between two triangulations of the same cube; at iteration 300 it happened to match a handbook value.
+  between two triangulations of the same cube; at iteration 300 it happened to match a commonly quoted
+  figure (about 1.05) that this project never sourced.
   Gating on a force band plus a residual drop, and reporting the window mean, removed that path
   dependence (the gated values agree within 0.02 %).
 - **Know what `yPlus` measures.** OpenFOAM's `yPlus` uses the wall distance of the first cell centre,
@@ -308,7 +310,7 @@ The code was written with Claude Code (an AI coding agent) under a fixed method,
 in the repository: an accuracy audit first, then one fix-plan step per session; each step opens with a
 question-and-answer "grill" whose answers are locked in a spec (`docs/reference/`), proceeds test first,
 runs live checks only on copies of solved cases, and closes with an independent review session
-(`docs/reviews/`). Session prompts are in `docs/prompts/`, the running log in `SESSION_LOG.md` and its
+(`docs/reviews/`; every step except FIX_PLAN step 3, see "Known limits"). Session prompts are in `docs/prompts/`, the running log in `SESSION_LOG.md` and its
 history in `docs/archive/`. The engineering decisions, acceptance criteria and visual QA were mine.
 
 ## Licence
