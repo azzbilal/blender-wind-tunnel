@@ -14,7 +14,7 @@ gather_cells, _export_frame, export_frames, voxel_grid, inlet_reference_pressure
 `validation/transient_t1_v2512.json`. Read-only except this file.
 
 Independent re-runs (reviewer scripts and scratch output in the job folder
-`C:\Users\bgare\.claude\jobs\b1d12b8c\tmp\`, removed with the job; method stated per item so each
+(a local Claude Code job directory, `jobs\b1d12b8c\tmp\`), removed with the job; method stated per item so each
 can be redone):
 - `rev_gates.py` (WSL python3, imports neither `transient.py` nor `t1_gates.py`): raw parse of
   `log.pimpleFoam` and `coefficient.dat`, own trapezoid*, own zero-crossing count and 0.1 s bins.

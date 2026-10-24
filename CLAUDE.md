@@ -4,16 +4,16 @@ A Blender add-on that builds or takes a model in Blender, solves the air flow ar
 OpenFOAM running in WSL Ubuntu, and brings forces and the flow field back into Blender
 (sidebar panel, surface pressure colours, Geometry Nodes smoke that samples the solved field).
 
-**The goal of the current phase is physical accuracy, not features.** The reference for every
+**Status (v1.0.0, 2026-10-24): closed as a portfolio piece.** FIX_PLAN steps 0 to 3 are done;
+steps 4 to 7 are documented next steps (`docs/FIX_PLAN.md` status block). The reference for every
 number is the math OpenFOAM solves (incompressible RANS, k-omega SST, wall functions) plus
 published experimental data. Read `docs/ACCURACY_AUDIT.md` before changing solver-side code,
-and work through `docs/FIX_PLAN.md` in order.
+and continue `docs/FIX_PLAN.md` in order.
 
-## Owner and how to talk to him
+## Working conventions
 
-- Bilal, aerospace structures engineer (MSc), CFD coursework (Ansys CFX, Altair, own OpenFOAM
-  cases). Knows the physics; explain CFD terms precisely, not simply.
-- Never use em dashes in anything you write for him (code comments, docs, chat).
+- The maintainer (Bilal) knows the physics: explain CFD terms precisely, not simply.
+- Never use em dashes in anything written for this project (code comments, docs, chat).
 - When a reply uses technical terms, mark each with an asterisk and define them in a short
   glossary at the end of the reply.
 - Never claim a result is "validated" or "in range" without a cited reference value. If a
@@ -36,8 +36,8 @@ and work through `docs/FIX_PLAN.md` in order.
 - Blender 5.2 LTS: `"/c/Program Files/Blender Foundation/Blender 5.2/blender.exe"`.
   The add-on is installed as a legacy add-on in
   `%APPDATA%\Blender Foundation\Blender\5.2\scripts\addons\wind_tunnel`.
-- Older working copy (do not edit, it is the previous source of truth):
-  `C:\Users\bgare\Documents\WindTunnel`. **This folder is now the source of truth.**
+- An older working copy outside this repository was the previous source of truth (do not edit
+  it). **This repository is now the source of truth.**
 
 ## Layout
 
@@ -59,7 +59,8 @@ tools/deploy.py         copy the add-on into Blender's add-ons folder and build 
 tools/blender_smoke.py  headless Blender check: register add-on, build airfoil, build node trees
 tools/audit/            accuracy audit scripts (run inside WSL, see tools/audit/README.md)
 validation/             baseline numbers, reference case dictionaries, solved-run forces
-docs/                   ACCURACY_AUDIT.md (findings), FIX_PLAN.md (ordered work with acceptance)
+docs/                   ACCURACY_AUDIT.md (findings), FIX_PLAN.md (ordered work with acceptance),
+                        reference/ (locked specs), reviews/, prompts/, archive/, media/ (README images)
 ```
 
 ## Data flow (3D)
@@ -95,8 +96,8 @@ MSYS_NO_PATHCONV=1 wsl -d Ubuntu-24.04 -e bash -lc "cd ~/wind_tunnel/3d_Cube && 
 ```
 
 Solved cases live in WSL `~/wind_tunnel/`: `3d_Cube`, `3d_Cone`, `3d_Sphere`, `3d_Suzanne`,
-`3d_Torus`, `naca0012_re6e06`. Audit copies (extended to 1200 iterations for Cube and Cone)
-are in `~/wind_tunnel/_audit` (about 3 GB, safe to delete once no longer needed).
+`3d_Torus`, `naca0012_re6e06`. The audit and slice copies (`_audit`, `_step2`, `_anim`, `_t1`,
+`_step3`) have been deleted; their numbers are recorded in `validation/`.
 
 ## Rules for changes
 

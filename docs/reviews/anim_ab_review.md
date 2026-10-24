@@ -10,8 +10,8 @@ to 42, wind_tunnel/anim.py, in wind_tunnel/viz3d.py `write_vdb`, `build_slice`, 
 `_label_tree`), tests/test_pure.py classes `SolidMask` and `AnimPure`, validation/anim_ab_v2512.json,
 validation/anim_ab_mask_e.json. Read-only except this file.
 
-Independent re-runs (scripts outside the repo, in `C:\Users\bgare\AppData\Local\Temp\wt_review_scripts\`,
-on a copy of `~/wind_tunnel/_anim/Cube/field.npz` placed at `C:\Users\bgare\AppData\Local\Temp\wt_review\`,
+Independent re-runs (scripts outside the repo, in a local temp folder `wt_review_scripts\`,
+on a copy of `~/wind_tunnel/_anim/Cube/field.npz` placed in a local temp folder `wt_review\`,
 sha1 5868c18e as recorded):
 - `probe.py`: headless Blender 5.2 factory startup, repo add-on code, real Cube field, WT Slice in Cp
   mode, `animate_slice("Y")`, evaluated slice at frames 13, 61, 100, 150 vs my own numpy trilinear*
@@ -166,7 +166,7 @@ outlet-referenced value by name.
   when practical.
 
 Housekeeping: `~/wind_tunnel/_anim` can be deleted now that this review has no FAIL (SESSION_LOG
-open issues). The reviewer's temp copy `C:\Users\bgare\AppData\Local\Temp\wt_review\field.npz` and
+open issues). The reviewer's temp copy `wt_review\field.npz` (local temp folder) and
 the two scripts can be deleted any time.
 
 ## Glossary
