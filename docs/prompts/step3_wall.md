@@ -14,7 +14,8 @@ Facts already established, do not re-derive:
 - v2512 function objects work (`yPlus`, `forces`, `forceCoeffs`; tools/audit/step0_check.py). A run is solved
   only when the step 2 gate passes. Cp uses the inlet p_inf.
 - Re = U L / nu = 20 x 2 / 1.5e-5 = 2.67e6 for the 2 m bodies. `first_cell` uses Cf = 0.026 / Re^(1/7)
-  (3.14e-3) and returns y = y+ / (sqrt(Cf/2) Re): 4.73e-4 m for y+ = 50. The source of the 0.026 coefficient
+  (3.14e-3) and returns y = y+ / (sqrt(Cf/2) Re): 4.73e-4 m for y+ = 50. CORRECTED in Stage 1: that is
+  y/L (2D case: chord 1, U 1, nu = 1/Re); for L = 2 m it is 0.95 mm (u_tau 0.79 m/s). The source of the 0.026 coefficient
   is NOT verified (White's local value is 0.027 / Re_x^(1/7) from memory, unconfirmed); cite it in Q1 or
   replace the correlation by one with a checked citation.
 - OpenFOAM's `yPlus` uses `nearWallDist`: face centre to cell centre, about half the first prism height.
@@ -30,8 +31,9 @@ Facts already established, do not re-derive:
   sphere 44/822/1269, cone 42/476/1467, cube 9/263/615.
 - A 0.95 mm first layer next to a 15.6 to 83 mm surface cell is a 16 to 87x jump; the last layer should reach
   about half the adjacent cell: n = 1 + ln(ratio) / ln(r) layers.
-- The only converged steady cube field left is `~/wind_tunnel/_t1/Cube/0` (U, p, k, omega, nut; the T1 start
-  field, mesh in constant/polyMesh and processor*). Keep `_t1/Cube` untouched; work on copies.
+- CORRECTED in Stage 1: `_t1/Cube/0` and `processor*/0` are NOT a converged field (uniform 0.orig, then
+  potentialFoam -writep). No converged steady cube field is left on disk; every Stage 4 run starts from
+  scratch. Stage 1 used the T1 URANS field at t = 2 s. Keep `_t1/Cube` untouched; work on copies.
 OUT OF SCOPE: domain size (step 4), validation against experiment (step 5), IDW and cell centres (step 6),
 the 2D far field (step 7).
 

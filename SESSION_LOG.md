@@ -129,7 +129,10 @@ RULES: no sudo, no em dashes, asterisk terms plus glossary, never "validated" wi
 
 ### Step 3 started 2026-10-24 (branch worktree-step3-wall)
 Stage 0 done (48216f2). The full slice prompt, with the facts established while loading context, is
-`docs/prompts/step3_wall.md`; resume from it (next: Stage 1 measurement, then grill Q1).
+`docs/prompts/step3_wall.md`; resume from it (Stage 1 measurement done 2026-10-24, commit 5a9ded9,
+`validation/step3_wall_v2512.json`; next: grill Q1). Stage 1 corrected two prompt facts: `_t1/Cube/0` is the
+potentialFoam start, not a converged field; `first_cell` returns y/L (0.95 mm for y+ 50 on L = 2 m). Work is
+on main now (worktree removed). Measured: first layer = 2.00 x nearWallDist (sphere, 100 % coverage).
 
 ### NEXT PROMPT (FIX_PLAN step 3, wall mesh and y+; after the T1 review has no open FAIL)
 Slice: FIX_PLAN step 3, wall treatment and surface resolution. Solver-side (case3d), so every

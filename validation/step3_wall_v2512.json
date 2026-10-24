@@ -786,5 +786,29 @@
     }
    ]
   }
+ },
+ "layer_height_vs_nearWallDist": {
+  "source": "3d_Sphere log.snappyHexMesh layer table: body 1560 faces, 2 layers, overall 0.0737 m, 100 %; expansionRatio 1.3",
+  "first_layer_m": 0.03204,
+  "d_mean_m": 0.015984,
+  "d_over_first_layer": 0.499,
+  "conclusion": "first layer height = 2.00 x the nearWallDist y (measured on a uniform-coverage body)"
+ },
+ "layer_coverage_now": {
+  "Sphere": {
+   "layers": 2.0,
+   "thickness_m": 0.0737,
+   "pct": 100.0
+  },
+  "Cone": {
+   "layers": 1.84,
+   "thickness_m": 0.0368,
+   "pct": 83.6
+  },
+  "Cube_v1912": {
+   "layers": 1.83,
+   "thickness_m": 0.0382,
+   "pct": 77.9
+  }
  }
 }
