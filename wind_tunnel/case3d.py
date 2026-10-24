@@ -413,7 +413,7 @@ def write_case(root: Path, stl_tris, s: Setup3D, exporter: Path | None = None):
     vox = t["L"] / s.voxels_per_L
     w = layer_sizing(t["L"], s)
     exp_args = (f"--speed {s.speed} --rho {s.rho} --nu {s.nu} --voxel {vox:.6g} --L {t['L']:.6g} "
-                f"--cap {s.iterations} --u-tau-ref {w['u_tau_ref']:.6g}" + (" --remeshed" if s.u_tau else ""))
+                f"--cap {s.iterations} --u-tau-ref {w['u_tau_ref']:.6g} --y-c {w['y_c']:.6g}")
     np_ = s.procs
     mpi = f"mpirun -np {np_} --oversubscribe"
     lines = [

@@ -524,9 +524,8 @@ def signature(ob):
     return f"{ob.name}|{len(me.vertices)}|{len(me.polygons)}|{lo}|{hi}|{mods}"
 
 
-def start_run3d(scene, ob, u_tau=None):
-    """Starts a 3D solve of `ob`; returns an error message, or None when it started. `u_tau` (m/s)
-    sizes the prism layers instead of the measured anchor (the spec Q1 re-mesh)."""
+def start_run3d(scene, ob):
+    """Starts a 3D solve of `ob`; returns an error message, or None when it started."""
     from . import case3d, viz3d
     p = scene.wind_tunnel
     if RUN3D:
@@ -540,8 +539,7 @@ def start_run3d(scene, ob, u_tau=None):
         return "The object has no faces"
     levels = case3d.PRESETS[p.quality]
     s = case3d.Setup3D(speed=p.wind_speed, ground=p.ground, surface_levels=levels[0], wake_level=levels[1],
-                       cells_per_L=levels[2], iterations=p.iterations3d, procs=max(1, min(p.cores or 4, 24)),
-                       u_tau=u_tau)
+                       cells_per_L=levels[2], iterations=p.iterations3d, procs=max(1, min(p.cores or 4, 24)))
     root_linux = f"{p.home}/wind_tunnel/3d_{_safe(ob.name)}"
     root = wsl.windows_path(p.distro, root_linux)
     p.run3d_path, p.body3d, p.message3d = str(root), ob.name, f"Solving {ob.name}: writing the case"
@@ -768,24 +766,6 @@ def _poll3d():
         p.message3d = f"{status}{extra}, {clock}"
         _redraw()
         return 2.0
-
-    # Spec Q1 (docs/reference/step3_wall_spec.md): a converged run that fails the y+ gate is re-meshed
-    # and solved once more with its own u_tau before it is reported.
-    if not st.get("remesh_checked") and not isinstance(st["proc"], _Finished):   # never on Load 3D
-        st["remesh_checked"] = True
-        try:
-            f0 = json.loads((root / "forces.json").read_text())
-        except (OSError, ValueError):
-            f0 = {}
-        u = results.remesh_u_tau(f0)
-        body = bpy.data.objects.get(st.get("body", ""))
-        if u and body is not None:
-            share = 100 * f0["wall"]["yplus"]["le_300"]
-            RUN3D.clear()
-            err = start_run3d(scene, body, u_tau=u)        # registers its own poll timer
-            p.message3d = err or f"y+ <= 300 on {share:.0f} % of the area only: re-meshing once (u_tau {u:.3f} m/s)"
-            _redraw()
-            return None
 
     # Finished: forces, then the volume (written in the background), then the scene objects.
     if st["built"] is None and not st["building"]:

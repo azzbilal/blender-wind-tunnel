@@ -302,8 +302,12 @@ def wall_lines(f: dict):
     yp, ly = w.get("yplus"), w.get("layers")
     lines, alert = [], False
     if yp:
-        lines += [f"y+ <= 300: {100 * yp['le_300']:.1f} % of area, {'OK' if yp['gate'] else 'need 90 %'}",
-                  f"y+ min {yp['min']:.0f}, mean {yp['mean']:.0f}, max {yp['max']:.0f}",
+        lines.append(f"y+ <= 300: {100 * yp['le_300']:.1f} % of area, {'OK' if yp['gate'] else 'need 90 %'}")
+        thick, design = yp.get("gt300_thick_first_cell"), yp.get("gt300_design_first_cell")
+        if not yp["gate"] and thick is not None and design is not None:      # amendment D2: the larger cause
+            lines.append(f"Cause: cut layers ({100 * thick:.0f} % of area)" if thick >= design
+                         else f"Cause: u_tau > sizing ({100 * design:.0f} % of area)")
+        lines += [f"y+ min {yp['min']:.0f}, mean {yp['mean']:.0f}, max {yp['max']:.0f}",
                   f"30 < y+ < 300: {100 * yp['band_30_300']:.0f} %, y+ < 5: {100 * yp['lt_5']:.1f} %"]
         alert |= not yp["gate"]
     else:
@@ -319,15 +323,6 @@ def wall_lines(f: dict):
         lines.append("Layer coverage not measured")
         alert = True
     return [x for ln in lines for x in _wrap(ln)], alert
-
-
-def remesh_u_tau(f: dict):
-    """Spec Q1 rule: a converged run that fails the y+ gate is re-meshed once with its own u_tau (m/s);
-    None when no re-mesh is due."""
-    yp = (f.get("wall") or {}).get("yplus")
-    if forces_converged(f) and yp and yp.get("gate") is False and not f.get("remeshed"):
-        return yp.get("u_tau_mean")
-    return None
 
 
 # NASA Turbulence Modeling Resource, NACA 0012 at Re 6e6, SST model (CFL3D, finest grid).

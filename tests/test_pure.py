@@ -1129,10 +1129,13 @@ class WallSizing(unittest.TestCase):
     def test_export_args_carry_sizing(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        script, _ = case3d.write_case(Path(tmp.name) / "c", cube_triangles(), case3d.Setup3D(u_tau=0.9))
+        s = case3d.Setup3D(u_tau=0.9)
+        script, t = case3d.write_case(Path(tmp.name) / "c", cube_triangles(), s)
         exp = next(ln for ln in script.read_text().splitlines() if "export_field.py" in ln)
         self.assertIn("--u-tau-ref 0.9", exp)
-        self.assertIn("--remeshed", exp)
+        y_c = float(re.search(r"--y-c (\S+)", exp).group(1))
+        self.assertAlmostEqual(y_c, case3d.layer_sizing(t["L"], s)["y_c"], delta=1e-8)   # 100 nu / 0.9, 6 digits
+        self.assertNotIn("--remeshed", exp)                  # amendment D2: no re-mesh
 
 
 V2512_LOG = """
@@ -1171,18 +1174,39 @@ class WallRecords(unittest.TestCase):
         yp = np.array([50.0, 200.0, 400.0, 2.0])
         A = np.array([1.0, 1.0, 1.0, 1.0])
         d = np.array([1e-3, 1e-3, 2e-3, 1e-3])
-        r = self.ef.yplus_record(yp, A, d, 1.5e-5)
+        r = self.ef.yplus_record(yp, A, d, 0.75e-3)
         self.assertAlmostEqual(r["le_300"], 0.75)
         self.assertAlmostEqual(r["band_30_300"], 0.5)
         self.assertAlmostEqual(r["lt_5"], 0.25)
         self.assertEqual((r["min"], r["max"]), (2.0, 400.0))
         self.assertAlmostEqual(r["mean"], 163.0)
         self.assertIs(r["gate"], False)                      # 75 % < 90 %
-        self.assertAlmostEqual(r["u_tau_mean"], np.mean(yp * 1.5e-5 / d))
+        self.assertNotIn("u_tau_mean", r)                    # amendment D2: no re-mesh u_tau
         json.dumps(r)
 
+    def test_yplus_split_at_two_y_c(self):
+        """Amendment D2: the y+ > 300 area splits at d = 2 y_c into cut-layer faces (thick first cell) and
+        faces whose first cell has the design thickness (u_tau above the sizing anchor)."""
+        yp = np.array([50.0, 200.0, 400.0, 2.0])
+        A = np.ones(4)
+        d = np.array([1e-3, 1e-3, 2e-3, 1e-3])
+        r = self.ef.yplus_record(yp, A, d, 0.75e-3)          # 2 y_c 1.5 mm < d 2 mm on the y+ 400 face
+        self.assertEqual(r["y_c"], 0.75e-3)
+        self.assertAlmostEqual(r["gt300_thick_first_cell"], 0.25)
+        self.assertAlmostEqual(r["gt300_design_first_cell"], 0.0)
+        r = self.ef.yplus_record(yp, A, d, 1e-3)             # d = 2 y_c counts as design
+        self.assertAlmostEqual(r["gt300_thick_first_cell"], 0.0)
+        self.assertAlmostEqual(r["gt300_design_first_cell"], 0.25)
+        self.assertAlmostEqual(r["gt300_thick_first_cell"] + r["gt300_design_first_cell"], 1 - r["le_300"])
+
+    def test_yplus_split_without_y_c(self):
+        r = self.ef.yplus_record(np.array([400.0]), np.ones(1), np.array([1e-3]))
+        self.assertIsNone(r["y_c"])
+        self.assertIsNone(r["gt300_thick_first_cell"])
+        self.assertIsNone(r["gt300_design_first_cell"])
+
     def test_yplus_area_weighted(self):
-        r = self.ef.yplus_record(np.array([100.0, 400.0]), np.array([9.5, 0.5]), np.array([1e-3, 1e-3]), 1.5e-5)
+        r = self.ef.yplus_record(np.array([100.0, 400.0]), np.array([9.5, 0.5]), np.array([1e-3, 1e-3]), 1e-3)
         self.assertAlmostEqual(r["le_300"], 0.95)
         self.assertIs(r["gate"], True)
 
@@ -1216,10 +1240,11 @@ class WallRecords(unittest.TestCase):
 
 
 class WallPanel(unittest.TestCase):
-    """Panel lines and warning for y+ and layers (spec Q5), and the Q1 re-mesh decision."""
+    """Panel lines and warning for y+ and layers (spec Q5), and the y+ failure cause (amendment D2)."""
 
     WALL = {"yplus": {"min": 2.0, "mean": 98.0, "max": 410.0, "le_300": 0.972, "band_30_300": 0.85,
-                      "lt_5": 0.002, "gate": True, "u_tau_mean": 0.74},
+                      "lt_5": 0.002, "gate": True, "y_c": 1.94e-3, "gt300_thick_first_cell": 0.02,
+                      "gt300_design_first_cell": 0.008},
             "layers": {"coverage": 0.992, "faces_extruded": 6064, "body_faces": 6112, "layers_target": 5,
                        "layers_mean": 4.56, "thickness_m": 0.0338, "thickness_pct": 96.2, "gate": True}}
 
@@ -1234,7 +1259,7 @@ class WallPanel(unittest.TestCase):
         self.assertFalse(alert)
         self.assertTrue(all(len(ln) <= results.PANEL_CHARS for ln in lines))
         bad, _ = results.wall_lines(self._f(yplus={"gate": False, "le_300": 0.8}, layers={"gate": False, "coverage": 0.62}))
-        self.assertEqual(len(bad), len(lines))                 # warnings fit on one line each, no wrap
+        self.assertEqual(len(bad), len(lines) + 1)             # warnings fit on one line each, plus the cause row
         text = "\n".join(lines)
         for s in ("97.2 %", "99.2 %", "85", "4.56"):
             self.assertIn(s, text)
@@ -1251,15 +1276,35 @@ class WallPanel(unittest.TestCase):
         f["wall"]["yplus"] = None
         self.assertTrue(results.wall_lines(f)[1])
 
-    def test_remesh_decision(self):
-        self.assertIsNone(results.remesh_u_tau(self._f()))                           # gate passed
-        fail = self._f(yplus={"gate": False, "u_tau_mean": 1.1})
-        self.assertAlmostEqual(results.remesh_u_tau(fail), 1.1)
-        fail["remeshed"] = True
-        self.assertIsNone(results.remesh_u_tau(fail))                               # only once
-        fail = self._f(yplus={"gate": False})
-        fail["converged"] = False
-        self.assertIsNone(results.remesh_u_tau(fail))                               # converged runs only
+    def test_fail_names_larger_cause(self):
+        ok, _ = results.wall_lines(self._f())
+        self.assertFalse(any(ln.startswith("Cause") for ln in ok))      # no cause row on a pass
+        cut, alert = results.wall_lines(self._f(yplus={"gate": False, "le_300": 0.8, "gt300_thick_first_cell": 0.15,
+                                                       "gt300_design_first_cell": 0.05}))
+        self.assertTrue(alert)
+        self.assertEqual(len(cut), len(ok) + 1)                          # one extra row, no wrap
+        self.assertTrue(all(len(ln) <= results.PANEL_CHARS for ln in cut))
+        row = next(ln for ln in cut if ln.startswith("Cause"))
+        self.assertIn("cut layers", row)
+        self.assertIn("15 %", row)
+        hi, _ = results.wall_lines(self._f(yplus={"gate": False, "le_300": 0.8, "gt300_thick_first_cell": 0.05,
+                                                  "gt300_design_first_cell": 0.15}))
+        self.assertTrue(all(len(ln) <= results.PANEL_CHARS for ln in hi))
+        row = next(ln for ln in hi if ln.startswith("Cause"))
+        self.assertIn("u_tau", row)
+        self.assertIn("15 %", row)
+
+    def test_fail_without_split(self):
+        """forces.json from before D2 (Load 3D): no split keys, no cause row, no error."""
+        f = self._f(yplus={"gate": False, "le_300": 0.8})
+        for k in ("y_c", "gt300_thick_first_cell", "gt300_design_first_cell"):
+            del f["wall"]["yplus"][k]
+        lines, alert = results.wall_lines(f)
+        self.assertTrue(alert)
+        self.assertFalse(any(ln.startswith("Cause") for ln in lines))
+
+    def test_no_remesh(self):
+        self.assertFalse(hasattr(results, "remesh_u_tau"))              # amendment D2
 
 
 if __name__ == "__main__":

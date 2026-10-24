@@ -253,19 +253,23 @@ def wall_checks(report):
     for c in ("Cd", "Cl", "Cs"):
         base.update({f"{c}_mean": 0.0, f"{c}_min": 0.0, f"{c}_max": 0.0})
     yp = {"min": 3.0, "mean": 60.0, "max": 290.0, "le_300": 1.0, "band_30_300": 0.8, "lt_5": 0.001,
-          "gate": True, "u_tau_mean": 0.35}
+          "gate": True, "y_c": 1.94e-3, "gt300_thick_first_cell": 0.0, "gt300_design_first_cell": 0.0}
     ly = {"coverage": 1.0, "faces_extruded": 6624, "body_faces": 6624, "layers_target": 5, "layers_mean": 3.37,
           "thickness_m": 0.0284, "thickness_pct": 80.9, "gate": True}
     out = {}
-    for name, ypv in (("pass", yp), ("fail", dict(yp, le_300=0.8, gate=False))):
+    fail = dict(yp, le_300=0.8, gate=False, gt300_thick_first_cell=0.15, gt300_design_first_cell=0.05)
+    for name, ypv in (("pass", yp), ("fail", fail)):
         wt.apply_forces3d(p, dict(base, wall={"yplus": ypv, "layers": ly}))
         log = []
         wt.WT_PT_panel.draw(types.SimpleNamespace(layout=_Rec(log)), _Ctx())
         row = next((r for r in log if r[0].startswith("y+ <= 300")), None)
-        out[name] = {"alert_prop": p.wall_alert3d, "row": list(row) if row else None}
+        cause = next((r for r in log if r[0].startswith("Cause")), None)
+        out[name] = {"alert_prop": p.wall_alert3d, "row": list(row) if row else None,
+                     "cause": list(cause) if cause else None}
     report["wall_panel"] = out
     good, bad = out["pass"]["row"], out["fail"]["row"]
-    return bool(good and good[1] == "CHECKMARK" and not good[2] and bad and bad[1] == "ERROR" and bad[2])
+    cause_ok = out["pass"]["cause"] is None and bool(out["fail"]["cause"]) and "cut layers" in out["fail"]["cause"][0]
+    return bool(good and good[1] == "CHECKMARK" and not good[2] and bad and bad[1] == "ERROR" and bad[2] and cause_ok)
 
 
 report, ok = {}, True

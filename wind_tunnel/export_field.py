@@ -284,16 +284,20 @@ def forces_record(t, ncells, Fp, Fv, Af, speed, rho, p_inf):
 YPLUS_MAX, AREA_REQUIRED, COVERAGE_REQUIRED = 300.0, 0.9, 0.9      # docs/reference/step3_wall_spec.md
 
 
-def yplus_record(yplus, A, d, nu):
+def yplus_record(yplus, A, d, y_c=None):
     """forces.json wall.yplus: OpenFOAM yPlus on the body faces (first cell centre, nearWallDist),
-    area-weighted. Gate: y+ <= 300 on at least 90 % of the area. u_tau_mean (area-weighted
-    y+ nu / d) is what a re-mesh sizes the layers with (spec Q1)."""
+    area-weighted. Gate: y+ <= 300 on at least 90 % of the area. The y+ > 300 area is split at
+    d = 2 y_c (spec amendment D2; d first cell-centre distance, y_c its design value, m):
+    gt300_thick_first_cell (cut layers) and gt300_design_first_cell (u_tau above the sizing anchor)."""
     w = A / A.sum()
     le = float(w[yplus <= YPLUS_MAX].sum())
+    high = yplus > YPLUS_MAX
+    split = lambda m: None if y_c is None else float(w[high & m].sum())
     return {"min": float(yplus.min()), "mean": float((w * yplus).sum()), "max": float(yplus.max()),
             "le_300": le, "band_30_300": float(w[(yplus > 30) & (yplus < YPLUS_MAX)].sum()),
             "lt_5": float(w[yplus < 5].sum()), "gate": le >= AREA_REQUIRED, "required": AREA_REQUIRED,
-            "u_tau_mean": float((w * yplus * nu / np.maximum(d, 1e-12)).sum())}
+            "y_c": y_c, "gt300_thick_first_cell": split(d > 2 * (y_c or 0)),
+            "gt300_design_first_cell": split(d <= 2 * (y_c or 0))}
 
 
 def layer_record(log: str):
@@ -320,7 +324,7 @@ def layer_record(log: str):
     return rec
 
 
-def wall_record(case, t, pts, sizes, starts, toks, owner, cc, nu):
+def wall_record(case, t, pts, sizes, starts, toks, owner, cc, y_c=None):
     """y+ (the yPlus field Allrun writes after reconstructPar; None if it is missing) and layer coverage."""
     start, nb = read_boundary(case / "constant" / "polyMesh")["body"]
     bf = np.arange(start, start + nb)
@@ -329,7 +333,7 @@ def wall_record(case, t, pts, sizes, starts, toks, owner, cc, nu):
     d = np.abs(((cc[owner[bf]] - fcen) * farea / A[:, None]).sum(axis=1))
     yp = case / t / "yPlus"
     log = case / "log.snappyHexMesh"
-    return {"yplus": yplus_record(read_patch_values(yp, "body", nb), A, d, nu) if yp.exists() else None,
+    return {"yplus": yplus_record(read_patch_values(yp, "body", nb), A, d, y_c) if yp.exists() else None,
             "layers": layer_record(log.read_text(errors="replace") if log.exists() else "")}
 
 
@@ -487,7 +491,7 @@ def main():
     ap.add_argument("--max-voxels", type=int, default=4_000_000)
     ap.add_argument("--cap", type=int, default=None, help="iteration cap (controlDict endTime)")
     ap.add_argument("--u-tau-ref", type=float, default=None, help="u_tau the layers were sized with, m/s")
-    ap.add_argument("--remeshed", action="store_true", help="this case is the spec Q1 re-mesh")
+    ap.add_argument("--y-c", type=float, default=None, help="design first cell-centre distance, m")
     ap.add_argument("--frames", action="store_true", help="time-resolved: one npz per written frame")
     ap.add_argument("--fps", type=int, default=transient.FPS_CFD, help="frames per second of flow time")
     ap.add_argument("--jobs", type=int, default=20, help="frames exported in parallel")
@@ -523,9 +527,8 @@ def main():
     Af = frontal_area(tris)
     forces = forces_record(t, ncells, Fp, Fv, Af, a.speed, a.rho, p_inf)
     forces.update(verdict_record(case, a.cap, Af, a.speed, a.rho))
-    forces["wall"] = wall_record(case, t, pts, sizes, starts, toks, owner, cc, a.nu)
+    forces["wall"] = wall_record(case, t, pts, sizes, starts, toks, owner, cc, a.y_c)
     forces["wall"]["u_tau_ref"] = a.u_tau_ref
-    forces["remeshed"] = a.remeshed
     (case / "forces.json").write_text(json.dumps(forces, indent=2))
     print(json.dumps(forces), flush=True)
 
