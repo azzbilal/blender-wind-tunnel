@@ -294,5 +294,41 @@ def verdict_lines(f: dict):
     return [w for ln in lines for w in _wrap(ln)]
 
 
+def wall_lines(f: dict):
+    """Panel lines for y+ and prism layers (docs/reference/step3_wall_spec.md Q5) and whether to warn:
+    the gates are y+ <= 300 on 90 % of the area and layers on 90 % of the faces; the band and y+ < 5
+    fractions, mean layers and thickness are information. Unmeasured counts as a warning."""
+    w = f.get("wall") or {}
+    yp, ly = w.get("yplus"), w.get("layers")
+    lines, alert = [], False
+    if yp:
+        lines += [f"y+ <= 300: {100 * yp['le_300']:.1f} % of area, {'OK' if yp['gate'] else 'need 90 %'}",
+                  f"y+ min {yp['min']:.0f}, mean {yp['mean']:.0f}, max {yp['max']:.0f}",
+                  f"30 < y+ < 300: {100 * yp['band_30_300']:.0f} %, y+ < 5: {100 * yp['lt_5']:.1f} %"]
+        alert |= not yp["gate"]
+    else:
+        lines.append("y+ not measured")
+        alert = True
+    if ly and ly.get("gate") is not None:
+        lines.append(f"Layers: {100 * ly['coverage']:.1f} % of faces, {'OK' if ly['gate'] else 'need 90 %'}")
+        if ly.get("layers_mean") is not None and ly.get("layers_target"):
+            lines.append(f"{ly['layers_mean']:.2f} of {ly['layers_target']} layers, "
+                         f"{ly['thickness_pct']:.0f} % of the thickness")
+        alert |= not ly["gate"]
+    else:
+        lines.append("Layer coverage not measured")
+        alert = True
+    return [x for ln in lines for x in _wrap(ln)], alert
+
+
+def remesh_u_tau(f: dict):
+    """Spec Q1 rule: a converged run that fails the y+ gate is re-meshed once with its own u_tau (m/s);
+    None when no re-mesh is due."""
+    yp = (f.get("wall") or {}).get("yplus")
+    if forces_converged(f) and yp and yp.get("gate") is False and not f.get("remeshed"):
+        return yp.get("u_tau_mean")
+    return None
+
+
 # NASA Turbulence Modeling Resource, NACA 0012 at Re 6e6, SST model (CFL3D, finest grid).
 NASA_0012_SST = {0.0: (0.0, 0.00809), 10.0: (1.0778, 0.01236), 15.0: (1.5068, 0.02219)}

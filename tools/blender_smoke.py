@@ -222,6 +222,52 @@ def _smoke_steps(viz3d, cube):
     return res
 
 
+class _Rec:
+    """Stand-in UILayout for drawing a panel headless: records (text, icon, alert) of every label."""
+
+    def __init__(self, log, alert=False):
+        object.__setattr__(self, "log", log)
+        object.__setattr__(self, "alert", alert)
+
+    def label(self, text="", icon="NONE", **_):
+        self.log.append((text, icon, bool(self.alert)))
+
+    def __getattr__(self, name):
+        return lambda *a, **k: _Rec(self.log, self.alert)
+
+
+class _Ctx:
+    def __getattr__(self, name):
+        return getattr(bpy.context, name)
+
+
+def wall_checks(report):
+    """FIX_PLAN step 3 panel warning (docs/reference/step3_wall_spec.md Q5): the y+ row is drawn with a
+    check mark when both gates pass, and in alert with the ERROR icon when y+ <= 300 covers under 90 %."""
+    import types
+    import wind_tunnel as wt
+    p = bpy.context.scene.wind_tunnel
+    base = {"drag_N": 1100.0, "lift_N": 0.0, "side_N": 0.0, "Cd": 1.15, "Cl": 0.0, "frontal_area_m2": 4.0,
+            "cells": 368124, "converged": True, "reasons": [], "iterations": 1830, "Cd_band": 0.0017,
+            "p_initial": 9.0e-4, "drag_N_mean": 1100.0, "lift_N_mean": 0.0, "side_N_mean": 0.0}
+    for c in ("Cd", "Cl", "Cs"):
+        base.update({f"{c}_mean": 0.0, f"{c}_min": 0.0, f"{c}_max": 0.0})
+    yp = {"min": 3.0, "mean": 60.0, "max": 290.0, "le_300": 1.0, "band_30_300": 0.8, "lt_5": 0.001,
+          "gate": True, "u_tau_mean": 0.35}
+    ly = {"coverage": 1.0, "faces_extruded": 6624, "body_faces": 6624, "layers_target": 5, "layers_mean": 3.37,
+          "thickness_m": 0.0284, "thickness_pct": 80.9, "gate": True}
+    out = {}
+    for name, ypv in (("pass", yp), ("fail", dict(yp, le_300=0.8, gate=False))):
+        wt.apply_forces3d(p, dict(base, wall={"yplus": ypv, "layers": ly}))
+        log = []
+        wt.WT_PT_panel.draw(types.SimpleNamespace(layout=_Rec(log)), _Ctx())
+        row = next((r for r in log if r[0].startswith("y+ <= 300")), None)
+        out[name] = {"alert_prop": p.wall_alert3d, "row": list(row) if row else None}
+    report["wall_panel"] = out
+    good, bad = out["pass"]["row"], out["fail"]["row"]
+    return bool(good and good[1] == "CHECKMARK" and not good[2] and bad and bad[1] == "ERROR" and bad[2])
+
+
 report, ok = {}, True
 try:
     import wind_tunnel as wt
@@ -251,6 +297,7 @@ try:
         report["case3d_files"] = sum(1 for _ in (Path(d) / "3d_Cube").rglob("*") if _.is_file())
 
     ok &= anim_checks(report, cube)
+    ok &= wall_checks(report)
 
     wt.unregister()
     report["unregistered"] = not hasattr(bpy.types.Scene, "wind_tunnel")

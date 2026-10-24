@@ -15,6 +15,7 @@ import io
 import importlib.util
 import json
 import math
+import re
 import sys
 import tempfile
 import types
@@ -139,10 +140,11 @@ class Case3D(unittest.TestCase):
         (x0, _, _), _ = self.t["box"]
         self.assertGreaterEqual(-1.0 - x0, 5 * self.t["L"])
 
-    @unittest.expectedFailure
     def test_layers_target(self):
-        """FIX_PLAN step 3: at least 5 prism layers sized from a target y+."""
-        self.assertGreaterEqual(self.s.layers, 5)
+        """FIX_PLAN step 3 as amended (docs/reference/step3_wall_spec.md A1): layers from a target y+, stack
+        capped at one surface cell. The add-on's COARSE preset gives 5 on the 2 m cube (MEDIUM: 3)."""
+        coarse = case3d.Setup3D(surface_levels=(2, 3), cells_per_L=6)
+        self.assertEqual(case3d.layer_sizing(self.t["L"], coarse)["n"], 5)
         self.assertIn("relativeSizes false", (self.root / "system/snappyHexMeshDict").read_text())
 
 
@@ -1021,6 +1023,231 @@ class Step0Check(unittest.TestCase):
                 "FoamFile\n{\n    version 2.0;\n    object transportProperties;\n}\n"
                 "transportModel Newtonian;\nnu 1.8e-05;\n")
             self.assertEqual(sc.case_nu(Path(d)), 1.8e-5)
+
+
+def _block(text, name):
+    """Body of a top-level `name { ... }` block of an OpenFOAM dictionary."""
+    i = text.index(name + "\n{")
+    depth, j = 0, text.index("{", i)
+    for k in range(j, len(text)):
+        depth += text[k] == "{"
+        depth -= text[k] == "}"
+        if depth == 0:
+            return text[j + 1:k]
+
+
+class WallSizing(unittest.TestCase):
+    """FIX_PLAN step 3 (docs/reference/step3_wall_spec.md): layers sized from a target y+ in metres."""
+
+    def test_coarse_numbers(self):
+        w = case3d.layer_sizing(2.0, case3d.Setup3D(surface_levels=(2, 3), cells_per_L=6))
+        self.assertAlmostEqual(w["u_tau_ref"], 0.0386 * 20.0, places=12)     # the anchor run itself
+        self.assertAlmostEqual(w["y_c"], 100 * 1.5e-5 / w["u_tau_ref"], places=12)
+        self.assertAlmostEqual(w["y_c"], 1.943e-3, delta=2e-6)
+        self.assertAlmostEqual(w["h1"], 2 * w["y_c"], places=12)
+        self.assertAlmostEqual(w["delta"], 2.0 / 6 / 8, places=12)
+        self.assertEqual((w["n_half"], w["n_depth"], w["n"]), (8, 5, 5))
+        self.assertAlmostEqual(w["min_thickness"], 0.5 * w["h1"], places=12)
+        T = w["h1"] * (1.3 ** w["n"] - 1) / 0.3
+        self.assertLessEqual(T, w["delta"])                                   # stack within one cell
+        self.assertGreater(w["h1"] * (1.3 ** (w["n"] + 1) - 1) / 0.3, w["delta"])
+
+    def test_medium_numbers(self):
+        w = case3d.layer_sizing(2.0, case3d.Setup3D(surface_levels=(3, 4), cells_per_L=8))
+        self.assertAlmostEqual(w["delta"], 0.25 / 16, places=12)
+        self.assertEqual((w["n_half"], w["n_depth"], w["n"]), (4, 3, 3))
+
+    def test_reynolds_transfer(self):
+        w = case3d.layer_sizing(4.0, case3d.Setup3D())
+        Re = 20.0 * 4.0 / 1.5e-5
+        self.assertAlmostEqual(w["u_tau_ref"], 0.0386 * 20.0 * (Re / (20.0 * 2.0 / 1.5e-5)) ** (-1 / 14), places=12)
+
+    def test_u_tau_override(self):
+        """Q1 re-mesh rule: a run's own u_tau replaces the anchor."""
+        w = case3d.layer_sizing(2.0, case3d.Setup3D(u_tau=1.0))
+        self.assertAlmostEqual(w["u_tau_ref"], 1.0)
+        self.assertAlmostEqual(w["y_c"], 1.5e-3, places=12)
+
+    def _snappy(self, **kw):
+        s = case3d.Setup3D(**kw)
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        case3d.write_case(Path(tmp.name) / "c", cube_triangles(), s)
+        return (Path(tmp.name) / "c/system/snappyHexMeshDict").read_text(), s
+
+    def test_snappy_layer_text(self):
+        text, s = self._snappy(surface_levels=(2, 3), cells_per_L=6)
+        w = case3d.layer_sizing(2.0, s)
+        lay = _block(text, "addLayersControls")
+        keys = {ln.split()[0] for ln in lay.splitlines() if ln.split()}
+        sizing = {"firstLayerThickness", "finalLayerThickness", "thickness", "expansionRatio"} & keys
+        self.assertEqual(sizing, {"firstLayerThickness", "expansionRatio"})   # exactly two
+        val = lambda k: float(re.search(rf"\b{k}\s+([^;\s]+);", lay).group(1))
+        self.assertIn("relativeSizes false;", lay)
+        self.assertIn("thicknessModel firstAndExpansion;", lay)
+        self.assertAlmostEqual(val("firstLayerThickness"), w["h1"], delta=1e-8)
+        self.assertAlmostEqual(val("minThickness"), w["min_thickness"], delta=1e-8)
+        self.assertEqual(val("expansionRatio"), 1.3)
+        self.assertEqual(val("featureAngle"), 60)
+        self.assertEqual(val("nGrow"), 0)
+        self.assertIn("nSurfaceLayers 5;", lay)
+        self.assertIn("addLayers       true;", text)
+
+    def test_curvature_level(self):
+        text, _ = self._snappy(surface_levels=(2, 3), cells_per_L=6)
+        self.assertRegex(text, r"body \{ level \(2 3\); curvatureLevel \(24 0 3 -1\);")
+        text, _ = self._snappy(surface_levels=(3, 4), cells_per_L=8)
+        self.assertRegex(text, r"body \{ level \(3 4\); curvatureLevel \(24 0 4 -1\);")
+
+    def test_layers_off(self):
+        text, _ = self._snappy(layers=0)
+        self.assertIn("addLayers       false;", text)
+
+    def test_allrun_yplus_after_reconstruct(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        script, _ = case3d.write_case(Path(tmp.name) / "c", cube_triangles(), case3d.Setup3D())
+        lines = script.read_text().splitlines()
+        at = lambda k: next(i for i, ln in enumerate(lines) if k in ln)
+        yp = at("-postProcess -func yPlus -latestTime")
+        self.assertLess(at("reconstructPar -latestTime"), yp)
+        self.assertLess(yp, at("python3 export_field.py"))
+        self.assertIn("|| true", lines[yp])                     # a missing y+ must not lose the forces
+
+    def test_export_args_carry_sizing(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        script, _ = case3d.write_case(Path(tmp.name) / "c", cube_triangles(), case3d.Setup3D(u_tau=0.9))
+        exp = next(ln for ln in script.read_text().splitlines() if "export_field.py" in ln)
+        self.assertIn("--u-tau-ref 0.9", exp)
+        self.assertIn("--remeshed", exp)
+
+
+V2512_LOG = """
+Extruding 6080 out of 6112 faces (99.47644%). Removed extrusion at 32 faces.
+Added 30560 out of 30560 cells (100%).
+Extruding 6064 out of 6112 faces (99.21466%). Removed extrusion at 0 faces.
+Mesh with layers : cells:388704  faces:1193105  points:417861  unbalance:0.2
+
+patch faces        layers        overall thickness
+              target   mesh     [m]       [%]
+----- -----    -----    ----     ---       ---
+body 6112     5        4.56     0.0338    96.2
+
+Layer mesh : cells:388704
+"""
+
+V1912_LOG = """
+patch faces    layers   overall thickness
+                       [m]       [%]
+----- -----    ------   ---       ---
+body 3096     1.84     0.0368    83.6
+
+"""
+
+
+class WallRecords(unittest.TestCase):
+    """export_field: y+ and layer coverage records for forces.json (step 3 spec, gates)."""
+
+    @classmethod
+    def setUpClass(cls):
+        global np
+        import numpy as np
+        cls.ef = importlib.import_module("wind_tunnel.export_field")
+
+    def test_yplus_record(self):
+        yp = np.array([50.0, 200.0, 400.0, 2.0])
+        A = np.array([1.0, 1.0, 1.0, 1.0])
+        d = np.array([1e-3, 1e-3, 2e-3, 1e-3])
+        r = self.ef.yplus_record(yp, A, d, 1.5e-5)
+        self.assertAlmostEqual(r["le_300"], 0.75)
+        self.assertAlmostEqual(r["band_30_300"], 0.5)
+        self.assertAlmostEqual(r["lt_5"], 0.25)
+        self.assertEqual((r["min"], r["max"]), (2.0, 400.0))
+        self.assertAlmostEqual(r["mean"], 163.0)
+        self.assertIs(r["gate"], False)                      # 75 % < 90 %
+        self.assertAlmostEqual(r["u_tau_mean"], np.mean(yp * 1.5e-5 / d))
+        json.dumps(r)
+
+    def test_yplus_area_weighted(self):
+        r = self.ef.yplus_record(np.array([100.0, 400.0]), np.array([9.5, 0.5]), np.array([1e-3, 1e-3]), 1.5e-5)
+        self.assertAlmostEqual(r["le_300"], 0.95)
+        self.assertIs(r["gate"], True)
+
+    def test_layer_record_v2512(self):
+        r = self.ef.layer_record(V2512_LOG)
+        self.assertEqual((r["faces_extruded"], r["body_faces"]), (6064, 6112))   # the final line
+        self.assertAlmostEqual(r["coverage"], 6064 / 6112)
+        self.assertEqual(r["layers_target"], 5)
+        self.assertAlmostEqual(r["layers_mean"], 4.56)
+        self.assertAlmostEqual(r["thickness_m"], 0.0338)
+        self.assertAlmostEqual(r["thickness_pct"], 96.2)
+        self.assertIs(r["gate"], True)
+        json.dumps(r)
+
+    def test_layer_record_low_coverage(self):
+        r = self.ef.layer_record(V2512_LOG.replace("Extruding 6064 out of 6112", "Extruding 3794 out of 6112"))
+        self.assertIs(r["gate"], False)
+
+    def test_layer_record_v1912_table(self):
+        r = self.ef.layer_record(V1912_LOG)
+        self.assertIsNone(r["coverage"])
+        self.assertIsNone(r["gate"])
+        self.assertIsNone(r["layers_target"])
+        self.assertAlmostEqual(r["layers_mean"], 1.84)
+        self.assertAlmostEqual(r["thickness_pct"], 83.6)
+
+    def test_layer_record_empty(self):
+        r = self.ef.layer_record("")
+        self.assertIsNone(r["gate"])
+        json.dumps(r)
+
+
+class WallPanel(unittest.TestCase):
+    """Panel lines and warning for y+ and layers (spec Q5), and the Q1 re-mesh decision."""
+
+    WALL = {"yplus": {"min": 2.0, "mean": 98.0, "max": 410.0, "le_300": 0.972, "band_30_300": 0.85,
+                      "lt_5": 0.002, "gate": True, "u_tau_mean": 0.74},
+            "layers": {"coverage": 0.992, "faces_extruded": 6064, "body_faces": 6112, "layers_target": 5,
+                       "layers_mean": 4.56, "thickness_m": 0.0338, "thickness_pct": 96.2, "gate": True}}
+
+    def _f(self, **wall):
+        w = json.loads(json.dumps(self.WALL))
+        for k, v in wall.items():
+            w[k].update(v)
+        return {"converged": True, "wall": w}
+
+    def test_lines_fit_and_pass(self):
+        lines, alert = results.wall_lines(self._f())
+        self.assertFalse(alert)
+        self.assertTrue(all(len(ln) <= results.PANEL_CHARS for ln in lines))
+        bad, _ = results.wall_lines(self._f(yplus={"gate": False, "le_300": 0.8}, layers={"gate": False, "coverage": 0.62}))
+        self.assertEqual(len(bad), len(lines))                 # warnings fit on one line each, no wrap
+        text = "\n".join(lines)
+        for s in ("97.2 %", "99.2 %", "85", "4.56"):
+            self.assertIn(s, text)
+
+    def test_alert_on_either_gate(self):
+        self.assertTrue(results.wall_lines(self._f(yplus={"gate": False, "le_300": 0.8}))[1])
+        self.assertTrue(results.wall_lines(self._f(layers={"gate": False, "coverage": 0.62}))[1])
+
+    def test_not_measured(self):
+        lines, alert = results.wall_lines({"converged": True})
+        self.assertTrue(alert)
+        self.assertIn("not measured", " ".join(lines))
+        f = self._f()
+        f["wall"]["yplus"] = None
+        self.assertTrue(results.wall_lines(f)[1])
+
+    def test_remesh_decision(self):
+        self.assertIsNone(results.remesh_u_tau(self._f()))                           # gate passed
+        fail = self._f(yplus={"gate": False, "u_tau_mean": 1.1})
+        self.assertAlmostEqual(results.remesh_u_tau(fail), 1.1)
+        fail["remeshed"] = True
+        self.assertIsNone(results.remesh_u_tau(fail))                               # only once
+        fail = self._f(yplus={"gate": False})
+        fail["converged"] = False
+        self.assertIsNone(results.remesh_u_tau(fail))                               # converged runs only
 
 
 if __name__ == "__main__":

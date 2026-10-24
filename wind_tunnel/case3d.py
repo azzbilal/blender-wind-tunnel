@@ -26,7 +26,9 @@ class Setup3D:
     cells_per_L: int = 6          # background cells across L
     surface_levels: tuple = (3, 4)  # refinement on the body: each level halves the cell
     wake_level: int = 2           # refinement in the box around and behind the body
-    layers: int = 2               # prism layers on the body (snappy drops them where it cannot fit them)
+    layers: int | None = None     # prism layers on the body; None: from the y+ target (layer_sizing), 0: none
+    y_plus: float = 100.0         # target y+ of the first cell centre (docs/reference/step3_wall_spec.md)
+    u_tau: float | None = None    # friction velocity for the sizing, m/s; None: the measured anchor
     iterations: int = 3000        # cap; the convergence gate (convergence.py) normally stops earlier
     write_every: int = 100
     procs: int = 8
@@ -117,6 +119,30 @@ mergePatchPairs ();
 """
 
 
+# Area-weighted mean u_tau / U on the sphere (Re_L 2.67e6), FIX_PLAN step 3 Stage 1
+# (validation/step3_wall_v2512.json); the Re^(-1/14) flat-plate shape carries it to other U and L.
+U_TAU_ANCHOR, RE_ANCHOR, EXPANSION = 0.0386, 20.0 * 2.0 / 1.5e-5, 1.3     # Re of that run, 2.67e6
+
+
+def layer_sizing(L: float, s: Setup3D):
+    """Prism layers from a target y+ (docs/reference/step3_wall_spec.md), all lengths in metres.
+
+    y_c is the first cell-centre distance: OpenFOAM's yPlus uses nearWallDist (half the first layer),
+    so the first layer is h1 = 2 y_c. n is the smaller of the half-cell rule (last layer about half the
+    surface cell Delta) and the one-cell stack cap (total thickness <= Delta)."""
+    re_L = s.speed * L / s.nu
+    u_tau = s.u_tau or U_TAU_ANCHOR * s.speed * (re_L / RE_ANCHOR) ** (-1 / 14)
+    y_c = s.y_plus * s.nu / u_tau
+    h1 = 2 * y_c
+    delta = L / s.cells_per_L / 2 ** s.surface_levels[1]
+    r = EXPANSION
+    n_half = math.ceil(1 + math.log(delta / (2 * h1)) / math.log(r))
+    n_depth = math.floor(math.log(1 + delta * (r - 1) / h1) / math.log(r))
+    n = max(1, min(n_half, n_depth)) if s.layers is None else s.layers
+    return {"u_tau_ref": u_tau, "y_c": y_c, "h1": h1, "delta": delta, "n_half": n_half, "n_depth": n_depth,
+            "n": n, "min_thickness": 0.5 * h1, "expansion": r}
+
+
 def snappy_dict(t, s: Setup3D):
     (w0, w1), L = t["wake"], t["L"]
     (x0, y0, z0), _ = t["box"]
@@ -124,9 +150,10 @@ def snappy_dict(t, s: Setup3D):
     loc = (x0 + 1.37 * L + 0.0123 * L, (t["box"][0][1] + t["box"][1][1]) / 2 + 0.0137 * L,
            (z0 + t["box"][1][2]) / 2 + 0.0111 * L if not s.ground else z0 + 2.21 * L + 0.0111 * L)
     lo1, lo2 = s.surface_levels
+    w = layer_sizing(L, s)
     return HEADER.format(cls="dictionary", obj="snappyHexMeshDict") + f"""castellatedMesh true;
 snap            true;
-addLayers       {'true' if s.layers else 'false'};
+addLayers       {'true' if w['n'] else 'false'};
 
 geometry
 {{
@@ -144,7 +171,7 @@ castellatedMeshControls
     features ( {{ file "body.eMesh"; level {lo2}; }} );
     refinementSurfaces
     {{
-        body {{ level ({lo1} {lo2}); patchInfo {{ type wall; }} }}
+        body {{ level ({lo1} {lo2}); curvatureLevel (24 0 {lo2} -1); patchInfo {{ type wall; }} }}
     }}
     resolveFeatureAngle 30;
     refinementRegions
@@ -169,11 +196,12 @@ snapControls
 
 addLayersControls
 {{
-    relativeSizes true;
-    layers {{ body {{ nSurfaceLayers {s.layers}; }} }}
-    expansionRatio 1.3;
-    finalLayerThickness 0.5;
-    minThickness 0.1;
+    relativeSizes false;
+    layers {{ body {{ nSurfaceLayers {w['n']}; }} }}
+    thicknessModel firstAndExpansion;
+    firstLayerThickness {w['h1']:.6g};
+    expansionRatio {w['expansion']:g};
+    minThickness {w['min_thickness']:.6g};
     nGrow 0;
     featureAngle 60;
     slipFeatureAngle 30;
@@ -378,8 +406,9 @@ def write_case(root: Path, stl_tris, s: Setup3D, exporter: Path | None = None):
     for helper in ("convergence.py", "transient.py"):      # export_field.py imports both
         shutil.copy(Path(__file__).with_name(helper), root / helper)
     vox = t["L"] / s.voxels_per_L
+    w = layer_sizing(t["L"], s)
     exp_args = (f"--speed {s.speed} --rho {s.rho} --nu {s.nu} --voxel {vox:.6g} --L {t['L']:.6g} "
-                f"--cap {s.iterations}")
+                f"--cap {s.iterations} --u-tau-ref {w['u_tau_ref']:.6g}" + (" --remeshed" if s.u_tau else ""))
     np_ = s.procs
     mpi = f"mpirun -np {np_} --oversubscribe"
     lines = [
@@ -404,6 +433,9 @@ def write_case(root: Path, stl_tris, s: Setup3D, exporter: Path | None = None):
         "echo exporting > status",
         "reconstructParMesh -constant > log.reconstructParMesh 2>&1 || fail reconstructParMesh",
         "reconstructPar -latestTime > log.reconstructPar 2>&1 || fail reconstructPar",
+        # y+ of the first cell centres (yPlus FO, nearWallDist); export_field reports it, a failure only
+        # leaves y+ unmeasured
+        "simpleFoam -postProcess -func yPlus -latestTime > log.yPlus 2>&1 || true",
         f"python3 export_field.py . {exp_args} > log.export 2>&1 || fail export",
         "echo done > status",
     ]

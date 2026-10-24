@@ -281,6 +281,58 @@ def forces_record(t, ncells, Fp, Fv, Af, speed, rho, p_inf):
             "p_inf_Pa": rho * p_inf, "p_inf_Cp_vs_outlet": p_inf / (0.5 * speed ** 2)}
 
 
+YPLUS_MAX, AREA_REQUIRED, COVERAGE_REQUIRED = 300.0, 0.9, 0.9      # docs/reference/step3_wall_spec.md
+
+
+def yplus_record(yplus, A, d, nu):
+    """forces.json wall.yplus: OpenFOAM yPlus on the body faces (first cell centre, nearWallDist),
+    area-weighted. Gate: y+ <= 300 on at least 90 % of the area. u_tau_mean (area-weighted
+    y+ nu / d) is what a re-mesh sizes the layers with (spec Q1)."""
+    w = A / A.sum()
+    le = float(w[yplus <= YPLUS_MAX].sum())
+    return {"min": float(yplus.min()), "mean": float((w * yplus).sum()), "max": float(yplus.max()),
+            "le_300": le, "band_30_300": float(w[(yplus > 30) & (yplus < YPLUS_MAX)].sum()),
+            "lt_5": float(w[yplus < 5].sum()), "gate": le >= AREA_REQUIRED, "required": AREA_REQUIRED,
+            "u_tau_mean": float((w * yplus * nu / np.maximum(d, 1e-12)).sum())}
+
+
+def layer_record(log: str):
+    """forces.json wall.layers from log.snappyHexMesh: coverage = faces extruded / body faces from the
+    final "Extruding X out of Y faces" line (gate: at least 90 %), and snappy's layer table for the body
+    (v2512: patch faces target mesh thickness[m] [%]; v1912: patch faces layers thickness[m] [%])."""
+    rec = {"coverage": None, "faces_extruded": None, "body_faces": None, "layers_target": None,
+           "layers_mean": None, "thickness_m": None, "thickness_pct": None, "gate": None,
+           "required": COVERAGE_REQUIRED}
+    ext = re.findall(r"Extruding (\d+) out of (\d+) faces", log)
+    if ext:
+        done, total = map(int, ext[-1])
+        rec.update(coverage=done / total, faces_extruded=done, body_faces=total,
+                   gate=done / total >= COVERAGE_REQUIRED)
+    tables = re.findall(r"patch\s+faces\s+layers\s+overall thickness[^\n]*\n(.*?)\n\s*\n", log, re.S)
+    for line in (tables[-1].splitlines() if tables else []):
+        f = line.split()
+        if f[:1] == ["body"]:
+            if len(f) >= 6:
+                rec.update(layers_target=int(f[2]), layers_mean=float(f[3]), thickness_m=float(f[4]),
+                           thickness_pct=float(f[5]))
+            elif len(f) == 5:
+                rec.update(layers_mean=float(f[2]), thickness_m=float(f[3]), thickness_pct=float(f[4]))
+    return rec
+
+
+def wall_record(case, t, pts, sizes, starts, toks, owner, cc, nu):
+    """y+ (the yPlus field Allrun writes after reconstructPar; None if it is missing) and layer coverage."""
+    start, nb = read_boundary(case / "constant" / "polyMesh")["body"]
+    bf = np.arange(start, start + nb)
+    fcen, farea = face_geometry(pts, sizes, starts, toks, bf)
+    A = np.linalg.norm(farea, axis=1)
+    d = np.abs(((cc[owner[bf]] - fcen) * farea / A[:, None]).sum(axis=1))
+    yp = case / t / "yPlus"
+    log = case / "log.snappyHexMesh"
+    return {"yplus": yplus_record(read_patch_values(yp, "body", nb), A, d, nu) if yp.exists() else None,
+            "layers": layer_record(log.read_text(errors="replace") if log.exists() else "")}
+
+
 def verdict_record(case, cap, Af, speed, rho):
     """forces.json convergence keys (FIX_PLAN step 2): the gate verdict at the last recorded iteration
     of the full history, Cd/Cl/Cs as window mean/min/max and the forces (N) as window means, all from
@@ -434,6 +486,8 @@ def main():
     ap.add_argument("--L", type=float, required=True)
     ap.add_argument("--max-voxels", type=int, default=4_000_000)
     ap.add_argument("--cap", type=int, default=None, help="iteration cap (controlDict endTime)")
+    ap.add_argument("--u-tau-ref", type=float, default=None, help="u_tau the layers were sized with, m/s")
+    ap.add_argument("--remeshed", action="store_true", help="this case is the spec Q1 re-mesh")
     ap.add_argument("--frames", action="store_true", help="time-resolved: one npz per written frame")
     ap.add_argument("--fps", type=int, default=transient.FPS_CFD, help="frames per second of flow time")
     ap.add_argument("--jobs", type=int, default=20, help="frames exported in parallel")
@@ -469,6 +523,9 @@ def main():
     Af = frontal_area(tris)
     forces = forces_record(t, ncells, Fp, Fv, Af, a.speed, a.rho, p_inf)
     forces.update(verdict_record(case, a.cap, Af, a.speed, a.rho))
+    forces["wall"] = wall_record(case, t, pts, sizes, starts, toks, owner, cc, a.nu)
+    forces["wall"]["u_tau_ref"] = a.u_tau_ref
+    forces["remeshed"] = a.remeshed
     (case / "forces.json").write_text(json.dumps(forces, indent=2))
     print(json.dumps(forces), flush=True)
 

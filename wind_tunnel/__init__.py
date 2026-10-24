@@ -109,6 +109,8 @@ class WT_Props(bpy.types.PropertyGroup):
     cells3d: IntProperty()
     converged3d: BoolProperty(default=False)
     verdict3d: StringProperty(default="")
+    wall3d: StringProperty(default="")          # y+ and prism layer lines (results.wall_lines)
+    wall_alert3d: BoolProperty(default=False)
     flow_wall: EnumProperty(name="Side wall", default="SPEED",
                             items=[("NONE", "None", "No side wall"),
                                    ("SPEED", "Speed", "Paint the side wall with |U| / U∞"),
@@ -522,8 +524,9 @@ def signature(ob):
     return f"{ob.name}|{len(me.vertices)}|{len(me.polygons)}|{lo}|{hi}|{mods}"
 
 
-def start_run3d(scene, ob):
-    """Starts a 3D solve of `ob`; returns an error message, or None when it started."""
+def start_run3d(scene, ob, u_tau=None):
+    """Starts a 3D solve of `ob`; returns an error message, or None when it started. `u_tau` (m/s)
+    sizes the prism layers instead of the measured anchor (the spec Q1 re-mesh)."""
     from . import case3d, viz3d
     p = scene.wind_tunnel
     if RUN3D:
@@ -537,7 +540,8 @@ def start_run3d(scene, ob):
         return "The object has no faces"
     levels = {"COARSE": ((2, 3), 2, 6), "MEDIUM": ((3, 4), 2, 8)}[p.quality]
     s = case3d.Setup3D(speed=p.wind_speed, ground=p.ground, surface_levels=levels[0], wake_level=levels[1],
-                       cells_per_L=levels[2], iterations=p.iterations3d, procs=max(1, min(p.cores or 4, 24)))
+                       cells_per_L=levels[2], iterations=p.iterations3d, procs=max(1, min(p.cores or 4, 24)),
+                       u_tau=u_tau)
     root_linux = f"{p.home}/wind_tunnel/3d_{_safe(ob.name)}"
     root = wsl.windows_path(p.distro, root_linux)
     p.run3d_path, p.body3d, p.message3d = str(root), ob.name, f"Solving {ob.name}: writing the case"
@@ -708,6 +712,19 @@ class WT_OT_slice_clear(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def apply_forces3d(p, f):
+    """Panel values from a forces.json: forces, the convergence verdict, y+ and prism layers."""
+    p.drag, p.lift, p.side = f["drag_N"], f["lift_N"], f["side_N"]
+    p.cd3d, p.cl3d, p.area3d, p.cells3d = f["Cd"], f["Cl"], f["frontal_area_m2"], int(f["cells"])
+    p.converged3d = results.forces_converged(f)
+    p.verdict3d = "\n".join(results.verdict_lines(f))
+    wall, p.wall_alert3d = results.wall_lines(f)
+    p.wall3d = "\n".join(wall)
+    if p.converged3d:                                  # window means, not the last iteration
+        p.drag, p.lift, p.side = f["drag_N_mean"], f["lift_N_mean"], f["side_N_mean"]
+        p.cd3d, p.cl3d = f["Cd_mean"], f["Cl_mean"]
+
+
 def _poll3d():
     import json
     st = RUN3D
@@ -752,6 +769,24 @@ def _poll3d():
         _redraw()
         return 2.0
 
+    # Spec Q1 (docs/reference/step3_wall_spec.md): a converged run that fails the y+ gate is re-meshed
+    # and solved once more with its own u_tau before it is reported.
+    if not st.get("remesh_checked") and not isinstance(st["proc"], _Finished):   # never on Load 3D
+        st["remesh_checked"] = True
+        try:
+            f0 = json.loads((root / "forces.json").read_text())
+        except (OSError, ValueError):
+            f0 = {}
+        u = results.remesh_u_tau(f0)
+        body = bpy.data.objects.get(st.get("body", ""))
+        if u and body is not None:
+            share = 100 * f0["wall"]["yplus"]["le_300"]
+            RUN3D.clear()
+            err = start_run3d(scene, body, u_tau=u)        # registers its own poll timer
+            p.message3d = err or f"y+ <= 300 on {share:.0f} % of the area only: re-meshing once (u_tau {u:.3f} m/s)"
+            _redraw()
+            return None
+
     # Finished: forces, then the volume (written in the background), then the scene objects.
     if st["built"] is None and not st["building"]:
         st["building"] = True
@@ -771,13 +806,7 @@ def _poll3d():
         return 0.5
     from . import viz3d
     lo, hi, U, f = st["built"]
-    p.drag, p.lift, p.side = f["drag_N"], f["lift_N"], f["side_N"]
-    p.cd3d, p.cl3d, p.area3d, p.cells3d = f["Cd"], f["Cl"], f["frontal_area_m2"], int(f["cells"])
-    p.converged3d = results.forces_converged(f)
-    p.verdict3d = "\n".join(results.verdict_lines(f))
-    if p.converged3d:                                  # window means, not the last iteration
-        p.drag, p.lift, p.side = f["drag_N_mean"], f["lift_N_mean"], f["side_N_mean"]
-        p.cd3d, p.cl3d = f["Cd_mean"], f["Cl_mean"]
+    apply_forces3d(p, f)
     p.body3d = p.forces_body = st.get("body", p.body3d)
     body = bpy.data.objects.get(p.body3d)
     viz3d.load_volume(root / "flow.vdb")
@@ -1106,6 +1135,11 @@ class WT_PT_panel(bpy.types.Panel):
             verdict.alert = not p.converged3d
             for line in (p.verdict3d or "Not converged:\nno convergence record").splitlines():
                 verdict.label(text=line)
+            if p.wall3d:
+                wall = col.column(align=True)
+                wall.alert = p.wall_alert3d
+                for i, line in enumerate(p.wall3d.splitlines()):
+                    wall.label(text=line, icon=("ERROR" if p.wall_alert3d else "CHECKMARK") if i == 0 else "NONE")
             if bpy.data.objects.get("WT Slice") is not None:
                 row = box.row(align=True)
                 row.prop(p, "sweep_axis", expand=True)

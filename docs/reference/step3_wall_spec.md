@@ -12,7 +12,7 @@ L = the body's largest dimension (`case3d.tunnel`), level0 = L / cells_per_L, (l
 
 | Quantity | Rule | L 2 m, U 20 m/s, COARSE |
 |---|---|---|
-| u_tau_ref | 0.0386 U (Re_L / 2.67e6)^(-1/14), Re_L = U L / nu | 0.772 m/s |
+| u_tau_ref | 0.0386 U (Re_L / Re_a)^(-1/14), Re_L = U L / nu, Re_a = 20 x 2 / 1.5e-5 = 2.67e6 | 0.772 m/s |
 | y_c (first cell centre) | 100 nu / u_tau_ref | 1.94 mm |
 | h1 = firstLayerThickness | 2 y_c, metres | 3.89 mm |
 | n_half | ceil(1 + ln(Delta / (2 h1)) / ln r) | 8 |
