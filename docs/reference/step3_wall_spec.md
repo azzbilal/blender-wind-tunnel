@@ -25,3 +25,21 @@ Grill answers (Bilal, 2026-10-24), locked before any code. Measurements: `valida
   30 < y+ < 300, area fraction with y+ < 5, y+ min/mean/max.
 - Rule: if a converged run fails the gate, re-derive u_tau from that run (area-weighted mean of
   y+ nu / nearWallDist) and re-mesh and re-solve once before reporting a FAIL.
+
+## Q2. Layer count, expansion, featureAngle (locked)
+
+- `thicknessModel firstAndExpansion`: firstLayerThickness h1 = 2 y_c (Q1), expansionRatio r = 1.3.
+- nSurfaceLayers n = ceil(1 + ln(Delta / (2 h1)) / ln r), Delta = cell size at the body's finer surface
+  level (Q4), so the last layer is about half the adjacent cell (0.5 to 0.6 Delta after rounding up).
+  h1 = 3.89 mm: n = 5 (stack 35 mm) on 20.8 mm cells, 4 (24 mm) on 15.6 mm cells.
+- `featureAngle 120` (was 60), `nGrow 0`, `layerTerminationAngle` default (0.5 featureAngle).
+  featureAngle is "when not to extrude surface; 90 is when two faces are perpendicular"
+  (etc/caseDicts/annotated/snappyHexMeshDict, v2512 example value 120). Hypothesis: 60 stops extrusion
+  at the cube's 90 degree edges and the cone's base rim (coverage now 77.9 % and 83.6 %).
+- Probe after Q4, before Stage 3: snappy only, on a copy of the cube, featureAngle 60 vs 120 with the
+  chosen layer settings. 120 passes only if layer coverage rises AND checkMesh reports no failed
+  checks AND max non-orthogonality and max skewness are no worse than at 60. Both results recorded in
+  `validation/step3_wall_v2512.json`.
+- Dropped layers: no extra fallback logic. snappy's layer table (patch, faces, layers, overall
+  thickness m and %) is parsed from log.snappyHexMesh into forces.json; gate layer coverage >= 90 %.
+  Below that: FAIL reported with the table (re-meshing from u_tau does not address edge or quality drops).
