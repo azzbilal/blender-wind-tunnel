@@ -51,12 +51,13 @@ def settings(tris, U=20.0, nu=1.5e-5):
             "level0": level0, "delta": delta, "n": n}
 
 
-def edit(case: Path, angle: float):
+def edit(case: Path, angle: float, n=None, nc=24, lmax=HI):
     s = settings(read_stl(case / "constant/triSurface/body.stl"))
+    s.update({"n": n or s["n"], "n_formula": s["n"], "curvature_cells_per_radius": nc, "curvature_lmax": lmax})
     p = case / "system/snappyHexMeshDict"
     t = p.read_text()
     subs = [
-        (r"body \{ level \((\d+) (\d+)\); patchInfo", rf"body {{ level (\1 \2); curvatureLevel (24 0 {HI} -1); patchInfo"),
+        (r"body \{ level \((\d+) (\d+)\); patchInfo", rf"body {{ level (\1 \2); curvatureLevel ({nc} 0 {lmax} -1); patchInfo"),
         (r"relativeSizes\s+true;", "relativeSizes false;"),
         (r"nSurfaceLayers\s+\d+;", f"nSurfaceLayers {s['n']};"),
         (r"finalLayerThickness\s+[\d.eE+-]+;", f"thicknessModel firstAndExpansion;\n    firstLayerThickness {s['h1']:.6g};"),
@@ -77,8 +78,26 @@ def layer_table(log: str):
     rows = {}
     for line in m.group(1).splitlines():
         f = line.split()
-        if len(f) >= 5:
-            rows[f[0]] = {"faces": int(f[1]), "layers": float(f[2]), "thickness_m": float(f[3]), "pct": float(f[4])}
+        if len(f) >= 6 and f[0] != "-----":            # v2512: patch faces target mesh thickness[m] [%]
+            rows[f[0]] = {"faces": int(f[1]), "target": int(f[2]), "mesh_mean": float(f[3]),
+                          "overall_thickness_m": float(f[4]), "thickness_pct_of_target": float(f[5])}
+    ext = re.findall(r"Extruding (\d+) out of (\d+) faces", log)
+    blocks = [b.split("Extruding")[0] for b in log.split("Checking mesh with layer")[1:]]
+
+    def per_iter(pat):                         # a check line is printed only when it fails somewhere
+        return [int(m.group(1)) if (m := re.search(pat + r"[^:\n]*:\s*(\d+)", b)) else 0 for b in blocks]
+
+    tet = per_iter(r"tet quality < 1e-15")
+    illegal = [int(m.group(1)) if (m := re.search(r"Detected (\d+) illegal faces", b)) else 0 for b in blocks]
+    for r in rows.values():
+        r["non_ortho_failures_per_iteration"] = per_iter(r"non-orthogonality >")
+        r["pyramid_failures_per_iteration"] = per_iter(r"face pyramid volume <")
+        r["faces_extruded_final"] = int(ext[-1][0])
+        r["coverage_faces_extruded"] = int(ext[-1][0]) / int(ext[-1][1])
+        r["layers_on_extruded_faces"] = r["mesh_mean"] / max(r["coverage_faces_extruded"], 1e-9)
+        r["layer_iterations"] = len(tet)
+        r["tet_quality_failures_per_iteration"] = tet
+        r["illegal_faces_per_iteration"] = illegal
     return rows
 
 
@@ -99,13 +118,19 @@ def tessellation(tris):
     c = v.mean(0)
     r = np.linalg.norm(v - c, axis=1)
     out = {"triangles": int(len(tris)), "vertices": int(len(v))}
-    if len(v) > 50 and r.std() / r.mean() < 1e-3:                      # a sphere: rings along z
+    edge = np.linalg.norm(tris[:, 1] - tris[:, 0], axis=1)
+    if len(v) > 50 and r.std() / r.mean() < 1e-3:
+        out.update({"radius_m": float(r.mean()), "triangle_edge_m_median": float(np.median(edge))})
+    zs = np.unique(np.round(v[:, 2] - c[2], 5))
+    ico = len(tris) in [20 * 4 ** k for k in range(8)]
+    if len(v) > 50 and r.std() / r.mean() < 1e-3 and not ico and len(zs) < 0.2 * len(v):   # UV sphere: rings along z
         z = np.unique(np.round(v[:, 2] - c[2], 5))
         rings = len(z) - 1                                             # ring bands between the poles
         segs = int(round((len(v) - 2) / (rings - 1)))
-        edge = np.linalg.norm(tris[:, 1] - tris[:, 0], axis=1)
-        out.update({"radius_m": float(r.mean()), "rings": rings, "segments": segs,
-                    "segment_angle_deg": 360 / segs, "triangle_edge_m_median": float(np.median(edge))})
+        out.update({"kind": "UV sphere", "rings": rings, "segments": segs,
+                    "segment_angle_deg": 360 / segs})
+    elif "radius_m" in out:
+        out["kind"] = "icosphere" if ico else "sphere"
     return out
 
 
@@ -135,7 +160,7 @@ def report(case: Path):
     out["level_area_fraction"] = {int(k): float(A[lev == k].sum() / A.sum()) for k in np.unique(lev)}
     out["level_from_face_area_fraction"] = {int(k): float(A[lev_area == k].sum() / A.sum()) for k in np.unique(lev_area)}
     c = tris.reshape(-1, 3).mean(0)
-    if "rings" in out["stl"]:                                          # sphere: front, side, rear
+    if "radius_m" in out["stl"]:                                       # sphere: front, side, rear
         ux = (fc[:, 0] - c[0]) / np.linalg.norm(fc - c, axis=1)
         reg = {"front ux>0.5": ux > 0.5, "side |ux|<=0.5": np.abs(ux) <= 0.5, "rear ux<-0.5": ux < -0.5}
         out["level_by_region"] = {k: {int(l): float(A[m & (lev == l)].sum() / A[m].sum()) for l in np.unique(lev[m])}
@@ -154,8 +179,11 @@ def main():
     ap.add_argument("mode", choices=["edit", "report"])
     ap.add_argument("case", type=Path)
     ap.add_argument("--feature-angle", type=float, default=120)
+    ap.add_argument("--n", type=int, help="override nSurfaceLayers (default: the half-cell formula)")
+    ap.add_argument("--nc", type=int, default=24, help="curvatureLevel cells per radius")
+    ap.add_argument("--lmax", type=int, default=HI, help="curvatureLevel max level")
     a = ap.parse_args()
-    edit(a.case, a.feature_angle) if a.mode == "edit" else report(a.case)
+    edit(a.case, a.feature_angle, a.n, a.nc, a.lmax) if a.mode == "edit" else report(a.case)
 
 
 if __name__ == "__main__":
