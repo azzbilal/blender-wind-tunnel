@@ -3127,5 +3127,242 @@
    ],
    "conclusion": "oscillates like the cold start (Cd 0.21 to 0.40, p residual 1.2e-2 at 3000): the start field is ruled out, the step 3 mesh is the cause. The old mesh converged with first cell centres at d 16 mm, y+ mean 822, y+ <= 300 on 17.8 % (Stage 1, bodies.Sphere), so its steady solution comes from a mesh that fails the y+ gate"
   }
+ },
+ "stageB_rerun_2026_10_24": {
+  "what": "Stage B re-runs after D1 and D2 were coded (commits 5499768, e7b538e): real Allrun from each body.stl, case3d.PRESETS COARSE (body level (3 3), wake 2, L/6), 24 ranks, cap 3000, step 2 convergence gate; tools/audit/step3_tracer.py --suffix _d1 Cube Cone Sphere into ~/wind_tunnel/_step3/run_<body>_d1; no re-mesh (D2); OpenFOAM v2512; 2026-10-24",
+  "summary": {
+   "Cube": {
+    "cells": 437192,
+    "converged": true,
+    "gate_iteration": 786,
+    "Cd_window_mean": 1.1448,
+    "Cd_band_pct": 0.329,
+    "Cd_step2": 1.1498,
+    "Cd_change_pct": -0.43,
+    "coverage": 1.0,
+    "layers_mean": 4.22,
+    "layers_target": 5,
+    "thickness_pct": 90.9,
+    "yplus_min_mean_max": [
+     3.88,
+     55.0,
+     302.8
+    ],
+    "le_300": 0.9982,
+    "band_30_300": 0.898,
+    "lt_5": 0.0004,
+    "gt300_thick_first_cell": 0.0018,
+    "gt300_design_first_cell": 0.0,
+    "checkMesh": "Mesh OK, max skewness 0.47, max non-orthogonality 41.5",
+    "wall_seconds": 319,
+    "vs_step3_stage4_run_Cube": "cells 369,664 -> 437,192 (+18.3 %), y+ <= 300 99.84 -> 99.82 %, Cd 1.1431 -> 1.1448"
+   },
+   "Cone": {
+    "cells": 383135,
+    "converged": true,
+    "gate_iteration": 716,
+    "Cd_window_mean": 0.5846,
+    "Cd_band_pct": 0.225,
+    "Cd_step2": 0.5833,
+    "Cd_change_pct": 0.23,
+    "coverage": 0.9837,
+    "layers_mean": 4.26,
+    "layers_target": 5,
+    "thickness_pct": 91.2,
+    "yplus_min_mean_max": [
+     6.77,
+     112.6,
+     1491.2
+    ],
+    "le_300": 0.9695,
+    "band_30_300": 0.9428,
+    "lt_5": 0.0,
+    "gt300_thick_first_cell": 0.0305,
+    "gt300_design_first_cell": 0.0,
+    "checkMesh": "Mesh OK, max skewness 0.82, max non-orthogonality 56.8",
+    "wall_seconds": 234,
+    "vs_stageA_V5": "V5 solve: 383,044 cells, converged 721, Cd 0.5849, y+ <= 300 96.9 %; this run reproduces it"
+   },
+   "Sphere": {
+    "cells": 388788,
+    "converged": false,
+    "gate_iteration": null,
+    "Cd": null,
+    "reasons": "cap 3000; Cd band 17.72 % over 2801 to 3000; p residual 1.0e-2 (trend +0.04 orders per 100)",
+    "coverage": 0.9921,
+    "layers_mean": 4.56,
+    "layers_target": 5,
+    "thickness_pct": 96.2,
+    "yplus_min_mean_max": [
+     7.65,
+     129.3,
+     1190.7
+    ],
+    "le_300": 0.9555,
+    "band_30_300": 0.9257,
+    "lt_5": 0.0,
+    "gt300_thick_first_cell": 0.043,
+    "gt300_design_first_cell": 0.0015,
+    "checkMesh": "Mesh OK, max skewness 0.62, max non-orthogonality 51.6",
+    "wall_seconds": 1039,
+    "note": "D3 as expected: no steady state, no Cd reported (step 2 rule). y+ is from the unconverged field at 3000, a snapshot. The 0.15 % design-first-cell share (d <= 2 y_c) is the first nonzero one; D2's 0 % was stated at d <= 1.5 y_c on converged and unconverged runs."
+   }
+  },
+  "runs": [
+   {
+    "body": "Cube",
+    "root": "/home/bilal/wind_tunnel/_step3/run_Cube_d1",
+    "status": "done",
+    "wall_seconds": 319,
+    "sizing": {
+     "u_tau_ref": 0.772,
+     "y_c": 0.0019430051813471502,
+     "h1": 0.0038860103626943004,
+     "delta": 0.041666666666666664,
+     "n_half": 8,
+     "n_depth": 5,
+     "n": 5,
+     "min_thickness": 0.0019430051813471502,
+     "expansion": 1.3
+    },
+    "cells": 437192,
+    "converged": true,
+    "iterations": 786,
+    "reasons": [],
+    "Cd_mean": 1.1448427346938774,
+    "Cd_band": 0.0032860765084320965,
+    "wall": {
+     "yplus": {
+      "min": 3.875982,
+      "mean": 54.95472063454572,
+      "max": 302.7585,
+      "le_300": 0.9982349847869616,
+      "band_30_300": 0.8979552446950022,
+      "lt_5": 0.00036168980343038147,
+      "gate": true,
+      "required": 0.9,
+      "y_c": 0.00194301,
+      "gt300_thick_first_cell": 0.0017650152130385423,
+      "gt300_design_first_cell": 0.0
+     },
+     "layers": {
+      "coverage": 1.0,
+      "faces_extruded": 13824,
+      "body_faces": 13824,
+      "layers_target": 5,
+      "layers_mean": 4.22,
+      "thickness_m": 0.0313,
+      "thickness_pct": 90.9,
+      "gate": true,
+      "required": 0.9
+     },
+     "u_tau_ref": 0.772
+    }
+   },
+   {
+    "body": "Cone",
+    "root": "/home/bilal/wind_tunnel/_step3/run_Cone_d1",
+    "status": "done",
+    "wall_seconds": 234,
+    "sizing": {
+     "u_tau_ref": 0.772,
+     "y_c": 0.0019430051813471502,
+     "h1": 0.0038860103626943004,
+     "delta": 0.041666666666666664,
+     "n_half": 8,
+     "n_depth": 5,
+     "n": 5,
+     "min_thickness": 0.0019430051813471502,
+     "expansion": 1.3
+    },
+    "cells": 383135,
+    "converged": true,
+    "iterations": 716,
+    "reasons": [],
+    "Cd_mean": 0.5846135705263622,
+    "Cd_band": 0.002250681617916171,
+    "wall": {
+     "yplus": {
+      "min": 6.769248,
+      "mean": 112.61651385111188,
+      "max": 1491.224,
+      "le_300": 0.9695086726183473,
+      "band_30_300": 0.9427978249145635,
+      "lt_5": 0.0,
+      "gate": true,
+      "required": 0.9,
+      "y_c": 0.00194301,
+      "gt300_thick_first_cell": 0.030491327381652743,
+      "gt300_design_first_cell": 0.0
+     },
+     "layers": {
+      "coverage": 0.9836829836829837,
+      "faces_extruded": 5064,
+      "body_faces": 5148,
+      "layers_target": 5,
+      "layers_mean": 4.26,
+      "thickness_m": 0.0317,
+      "thickness_pct": 91.2,
+      "gate": true,
+      "required": 0.9
+     },
+     "u_tau_ref": 0.772
+    }
+   },
+   {
+    "body": "Sphere",
+    "root": "/home/bilal/wind_tunnel/_step3/run_Sphere_d1",
+    "status": "done",
+    "wall_seconds": 1039,
+    "sizing": {
+     "u_tau_ref": 0.772,
+     "y_c": 0.0019430051813471502,
+     "h1": 0.0038860103626943004,
+     "delta": 0.041666666666666664,
+     "n_half": 8,
+     "n_depth": 5,
+     "n": 5,
+     "min_thickness": 0.0019430051813471502,
+     "expansion": 1.3
+    },
+    "cells": 388788,
+    "converged": false,
+    "iterations": 3000,
+    "reasons": [
+     "stopped at the cap of 3000 iterations",
+     "Cd band 17.72 % >= 0.5 % over iterations 2801 to 3000",
+     "p residual 1.0e-02 >= 0.001 (trend +0.04 orders per 100 iterations)"
+    ],
+    "Cd_mean": 0.317296801250053,
+    "Cd_band": 0.17720841729797052,
+    "wall": {
+     "yplus": {
+      "min": 7.651021,
+      "mean": 129.3340400382901,
+      "max": 1190.72,
+      "le_300": 0.9555031192763677,
+      "band_30_300": 0.9257162137177778,
+      "lt_5": 0.0,
+      "gate": true,
+      "required": 0.9,
+      "y_c": 0.00194301,
+      "gt300_thick_first_cell": 0.04299372869795162,
+      "gt300_design_first_cell": 0.0015031520256809155
+     },
+     "layers": {
+      "coverage": 0.9921465968586387,
+      "faces_extruded": 6064,
+      "body_faces": 6112,
+      "layers_target": 5,
+      "layers_mean": 4.56,
+      "thickness_m": 0.0338,
+      "thickness_pct": 96.2,
+      "gate": true,
+      "required": 0.9
+     },
+     "u_tau_ref": 0.772
+    }
+   }
+  ]
  }
 }
